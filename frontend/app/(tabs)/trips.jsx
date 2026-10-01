@@ -10,6 +10,7 @@ import {
   Image,
   Dimensions,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +65,9 @@ function formatTripDates(from, to) {
 export default function TripsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 768;
+  const heroImageHeight = isDesktop ? 360 : 280;
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
 
@@ -405,11 +409,11 @@ export default function TripsScreen() {
               return (
                 <View key={trip.id} style={[styles.tripCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
                   {/* Full-width Destination Imagery with Gradient */}
-                  <View style={styles.cardImageContainer}>
+                  <View style={[styles.cardImageContainer, { height: heroImageHeight }]}>
                     <Image source={destImg} style={styles.cardImage} resizeMode="cover" />
                     <LinearGradient
-                      colors={['rgba(23, 24, 23, 0.15)', 'rgba(23, 24, 23, 0.45)', 'rgba(251, 250, 247, 0.95)']}
-                      locations={[0, 0.55, 1]}
+                      colors={['rgba(23, 24, 23, 0.40)', 'rgba(23, 24, 23, 0.05)', 'rgba(23, 24, 23, 0.85)']}
+                      locations={[0, 0.45, 1]}
                       style={StyleSheet.absoluteFill}
                     />
 
@@ -1034,10 +1038,11 @@ const styles = StyleSheet.create({
   },
   cardImageContainer: {
     width: '100%',
-    height: 180,
+    height: 320,
+    minHeight: 260,
     position: 'relative',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 20,
   },
   cardImage: {
     ...StyleSheet.absoluteFillObject,
@@ -1113,14 +1118,14 @@ const styles = StyleSheet.create({
   },
   destinationTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
     marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
   },
   datesRow: {
     flexDirection: 'row',
@@ -1130,8 +1135,11 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.peach,
+    color: '#E7D3B5',
     letterSpacing: 0.1,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 
   cardBody: {

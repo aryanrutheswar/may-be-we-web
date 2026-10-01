@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
   },
   heroCover: {
     width: '100%',
-    height: 220,
+    height: 340,
     position: 'relative',
     justifyContent: 'flex-end',
   },
