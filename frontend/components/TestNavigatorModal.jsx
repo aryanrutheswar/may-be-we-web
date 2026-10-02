@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { COLORS, SPACING, RADIUS } from '../lib/theme';
+import { useTransitionManager } from './TransitionManager';
 
 export const ALL_SCREENS = [
   // Authentication
@@ -131,6 +132,7 @@ export const ALL_SCREENS = [
 export default function TestNavigatorModal() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
+  const { navigateWithTransition } = useTransitionManager();
   let pathname = '';
   try {
     pathname = usePathname() || '';
@@ -141,7 +143,29 @@ export default function TestNavigatorModal() {
   const handleNavigate = (route) => {
     setIsOpen(false);
     const separator = route.includes('?') ? '&' : '?';
-    router.push(`${route}${separator}preview=true`);
+    const target = `${route}${separator}preview=true`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem('__maybewe_preview__', 'true');
+      } catch (e) {}
+    }
+
+    console.log('[TestNavigator] Navigating to:', target);
+
+    try {
+      if (typeof window !== 'undefined' && typeof window.__MAYBEWE_NAVIGATE__ === 'function') {
+        window.__MAYBEWE_NAVIGATE__(target);
+        return;
+      }
+      if (typeof navigateWithTransition === 'function') {
+        navigateWithTransition(target);
+        return;
+      }
+    } catch (err) {
+      console.warn('[TestNavigator] Transition navigation warning:', err);
+    }
+    router.push(target);
   };
 
   const categories = ['Authentication', 'Onboarding', 'Main App', 'Other'];
@@ -343,10 +367,22 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(15, 23, 42, 0.70)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.md,
+    ...Platform.select({
+      web: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+      },
+    }),
   },
   modalCard: {
     width: '100%',

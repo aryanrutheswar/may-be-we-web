@@ -73,7 +73,7 @@ export default function ForgotPasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.root}
     >
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <ScrollView
         contentContainerStyle={[
@@ -97,11 +97,11 @@ export default function ForgotPasswordScreen() {
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
-              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+              <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
             </TouchableOpacity>
 
             <View style={styles.brandBadge}>
-              <Ionicons name="airplane" size={14} color="#0F172A" style={{ marginRight: 6 }} />
+              <Ionicons name="airplane" size={14} color="#FAF8F3" style={{ marginRight: 6 }} />
               <Text style={styles.brandBadgeText}>MAYBEWE</Text>
             </View>
 
@@ -212,7 +212,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F6F2',
+    backgroundColor: 'transparent',
   },
   bg: {
     flex: 1,
@@ -237,28 +237,49 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADII.sm,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D9D8D3',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.38)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.18)',
+        cursor: 'pointer',
+      },
+      default: {},
+    }),
   },
   brandBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: RADII.sm,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D9D8D3',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(231, 211, 181, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+      },
+      default: {},
+    }),
   },
   brandBadgeText: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
-    color: '#171716',
-    letterSpacing: 2.0,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FAF8F3',
+    letterSpacing: 2.2,
   },
   cardContainer: {
     width: '100%',
@@ -272,24 +293,43 @@ const styles = StyleSheet.create({
   },
   headingTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 32,
-    color: '#171716',
+    fontSize: 30,
+    color: '#FFFFFF',
     letterSpacing: -0.6,
     marginBottom: 8,
+    ...Platform.select({
+      web: {
+        textShadow: '0 2px 10px rgba(0, 0, 0, 0.55)',
+      },
+    }),
   },
   headingSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#363633',
+    fontSize: 14,
+    lineHeight: 21,
+    color: 'rgba(255, 255, 255, 0.90)',
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 4px rgba(0, 0, 0, 0.55)',
+      },
+    }),
   },
   glassFormCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADII.xl,
+    backgroundColor: 'rgba(255, 255, 255, 0.13)',
+    borderRadius: 26,
     padding: 24,
-    borderWidth: 1,
-    borderColor: '#D9D8D3',
-    ...SHADOWS.subtle,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        boxShadow: '0 24px 50px rgba(0, 0, 0, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.38)',
+      },
+      default: {
+        ...SHADOWS.subtle,
+      },
+    }),
   },
   errorBox: {
     flexDirection: 'row',
@@ -321,12 +361,12 @@ const styles = StyleSheet.create({
   signInPromptText: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: '#475569',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   signInLinkText: {
     fontFamily: FONTS.semiBold,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
     textDecorationLine: 'underline',
   },
   /* Success View Styles */

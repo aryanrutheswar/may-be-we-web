@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   TextInput,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,7 @@ import PageTransition from '../../components/PageTransition';
 export default function VerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session, user, profile, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
+  const { session, user, profile, login, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
 
   const [selfieUri, setSelfieUri] = useState(null);
   const [verificationState, setVerificationState] = useState('NOT_STARTED');
@@ -64,61 +65,126 @@ export default function VerificationScreen() {
     }
   }, [profile?.needsProfileRepair, profile?.name, profile?.age]);
 
-  // Sync with user's stored status on mount
+  // Default to NOT_STARTED (Camera Option) when visiting verification screen
   useEffect(() => {
-    const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
-    if (profile?.verification_status === 'verified') {
-      setVerificationState('VERIFIED');
-    } else if (profile?.verification_status === 'pending') {
-      if (isDemo) {
-        setVerificationState('VERIFIED');
-      } else {
-        setVerificationState('PENDING');
-      }
-    } else if (profile?.verification_status === 'failed' || profile?.verification_status === 'rejected') {
-      setVerificationState('FAILED');
-    } else {
-      setVerificationState('NOT_STARTED');
+    setVerificationState('NOT_STARTED');
+  }, []);
+
+  const [isLiveCameraActive, setIsLiveCameraActive] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+
+  // Stop live camera stream on unmount
+  useEffect(() => {
+    return () => {
+      stopLiveCamera();
+    };
+  }, []);
+
+  const stopLiveCamera = () => {
+    if (streamRef.current) {
+      try {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
+      streamRef.current = null;
     }
-  }, [profile?.verification_status]);
+    setIsLiveCameraActive(false);
+  };
+
+  const handlePickFromFile = (withCapture = false) => {
+    try {
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        if (withCapture) {
+          input.setAttribute('capture', 'user');
+        }
+        input.onchange = (e) => {
+          const file = e.target?.files?.[0];
+          if (file) {
+            const url = URL.createObjectURL(file);
+            stopLiveCamera();
+            setSelfieUri(url);
+            setVerificationState('CAPTURED');
+          }
+        };
+        input.click();
+        return;
+      }
+
+      ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      }).then((res) => {
+        if (!res.canceled && res.assets?.[0]?.uri) {
+          stopLiveCamera();
+          setSelfieUri(res.assets[0].uri);
+          setVerificationState('CAPTURED');
+        }
+      });
+    } catch (err) {
+      console.warn('Pick file error:', err);
+    }
+  };
+
+  const handleTakeLiveSelfie = () => {
+    try {
+      if (videoRef.current) {
+        const video = videoRef.current;
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 640;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        // Mirror horizontally to match camera preview
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        stopLiveCamera();
+        setSelfieUri(dataUrl);
+        setVerificationState('CAPTURED');
+      }
+    } catch (err) {
+      console.warn('Error taking live snapshot:', err);
+      stopLiveCamera();
+      handlePickFromFile();
+    }
+  };
 
   const handleCaptureSelfie = async () => {
     try {
       if (Platform.OS === 'web') {
-        // In browser environments, try camera or file upload
-        try {
-          const result = await ImagePicker.launchCameraAsync({
-            cameraType: ImagePicker.CameraType.front,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.7,
-          });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setSelfieUri(result.assets[0].uri);
-            setVerificationState('CAPTURED');
+        // Try live webcam stream first if available in browser
+        if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: 'user',
+                width: { ideal: 640 },
+                height: { ideal: 640 },
+              },
+            });
+            streamRef.current = stream;
+            setIsLiveCameraActive(true);
+            setTimeout(() => {
+              if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play().catch((e) => console.warn('Video play error:', e));
+              }
+            }, 100);
             return;
+          } catch (camErr) {
+            console.log('Live webcam stream not accessible or cancelled, trying file camera:', camErr);
           }
-        } catch (webCamErr) {
-          console.log('Web camera bypassed or unavailable, trying photo picker:', webCamErr);
         }
 
-        try {
-          const libResult = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-          });
-          if (!libResult.canceled && libResult.assets?.[0]?.uri) {
-            setSelfieUri(libResult.assets[0].uri);
-            setVerificationState('CAPTURED');
-            return;
-          }
-        } catch (webLibErr) {
-          console.log('Web photo picker error:', webLibErr);
-        }
-
-        Alert.alert('Camera or Photo Required', 'Please capture or upload a clear photo of your face to verify your identity.');
+        // Direct browser file/camera capture fallback
+        handlePickFromFile(true);
         return;
       }
 
@@ -186,6 +252,7 @@ export default function VerificationScreen() {
   };
 
   const handleRetry = () => {
+    stopLiveCamera();
     setSelfieUri(null);
     setFailureReason('');
     setVerificationState('NOT_STARTED');
@@ -337,14 +404,17 @@ export default function VerificationScreen() {
       <PageTransition variant="verification" style={{ flex: 1, alignItems: 'center' }}>
         <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* Top Bar with Back Button */}
+          {/* Top Bar with Back Button and Quick Explore/Demo Button */}
           <View style={styles.topBar}>
             <TouchableOpacity
               onPress={() => {
+                if (typeof window !== 'undefined' && window.sessionStorage) {
+                  window.sessionStorage.setItem('__maybewe_preview__', 'true');
+                }
                 if (router.canGoBack()) {
                   router.back();
                 } else {
-                  router.replace('/(tabs)/profile');
+                  router.replace('/(auth)/welcome');
                 }
               }}
               style={styles.backButton}
@@ -353,6 +423,25 @@ export default function VerificationScreen() {
             >
               <Ionicons name="arrow-back" size={20} color="#171817" />
               <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                if (typeof window !== 'undefined' && window.sessionStorage) {
+                  window.sessionStorage.setItem('__maybewe_preview__', 'true');
+                }
+                try {
+                  if (typeof login === 'function') {
+                    await login('demo@maybewe.io', 'demo1234');
+                  }
+                } catch (e) {}
+                router.replace('/(tabs)?preview=true');
+              }}
+              style={styles.skipDemoBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Explore website"
+            >
+              <Text style={styles.skipDemoBtnText}>Explore App →</Text>
             </TouchableOpacity>
           </View>
 
@@ -402,6 +491,50 @@ export default function VerificationScreen() {
                     <Text style={styles.retakeText}>Retake Photo</Text>
                   </TouchableOpacity>
                 </View>
+              ) : isLiveCameraActive ? (
+                <View style={styles.liveCameraContainer}>
+                  <View style={styles.liveVideoWrapper}>
+                    {Platform.OS === 'web' && (
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{
+                          width: 240,
+                          height: 240,
+                          borderRadius: 120,
+                          objectFit: 'cover',
+                          transform: 'scaleX(-1)',
+                          border: '3px solid #171817',
+                          backgroundColor: '#171817',
+                        }}
+                      />
+                    )}
+                    <View style={styles.liveIndicator}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.liveIndicatorText}>LIVE CAMERA</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.liveGuidanceText}>Position your face inside the circle</Text>
+                  <View style={styles.liveCameraActions}>
+                    <TouchableOpacity
+                      onPress={handleTakeLiveSelfie}
+                      style={styles.captureBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="camera" size={18} color="#FBFAF7" style={{ marginRight: 8 }} />
+                      <Text style={styles.captureBtnText}>Snap Selfie</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={stopLiveCamera}
+                      style={styles.cancelLiveBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.cancelLiveText}>Cancel Camera</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ) : (
                 <View style={styles.cameraPlaceholder}>
                   <View style={styles.cameraIconCircle}>
@@ -419,8 +552,17 @@ export default function VerificationScreen() {
                     style={styles.captureBtn}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="camera" size={18} color="#0F172A" style={{ marginRight: 8 }} />
+                    <Ionicons name="camera" size={18} color="#FBFAF7" style={{ marginRight: 8 }} />
                     <Text style={styles.captureBtnText}>Open Camera</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handlePickFromFile(false)}
+                    style={styles.uploadAlternativeBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="image-outline" size={15} color="#77766F" style={{ marginRight: 6 }} />
+                    <Text style={styles.uploadAlternativeText}>Or choose photo from device</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -492,6 +634,20 @@ export default function VerificationScreen() {
                 onPress={handleFinish}
                 style={{ width: '100%', marginTop: 24 }}
               />
+
+              <TouchableOpacity
+                style={styles.retakeFromVerifiedBtn}
+                onPress={() => {
+                  stopLiveCamera();
+                  setSelfieUri(null);
+                  setFailureReason('');
+                  setVerificationState('NOT_STARTED');
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera-reverse-outline" size={16} color="#171817" style={{ marginRight: 6 }} />
+                <Text style={styles.retakeFromVerifiedText}>Retake Selfie / Test Camera</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -573,7 +729,7 @@ export default function VerificationScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
@@ -591,7 +747,19 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  skipDemoBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#171817',
+  },
+  skipDemoBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    color: '#EFDCCC',
   },
   backButton: {
     flexDirection: 'row',
@@ -1014,5 +1182,92 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  retakeFromVerifiedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    borderColor: '#D7D2C8',
+    backgroundColor: '#F1EEE6',
+    marginTop: 12,
+    width: '100%',
+  },
+  retakeFromVerifiedText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: '#171817',
+  },
+  uploadAlternativeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  uploadAlternativeText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#77766F',
+    textDecorationLine: 'underline',
+  },
+  liveCameraContainer: {
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 12,
+  },
+  liveVideoWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  liveIndicator: {
+    position: 'absolute',
+    top: 10,
+    backgroundColor: 'rgba(23, 24, 23, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADII.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    marginRight: 6,
+  },
+  liveIndicatorText: {
+    color: '#FBFAF7',
+    fontSize: 10,
+    fontFamily: FONTS.bold,
+    letterSpacing: 0.5,
+  },
+  liveGuidanceText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#45453F',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  liveCameraActions: {
+    alignItems: 'center',
+    width: '100%',
+    gap: 10,
+  },
+  cancelLiveBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  cancelLiveText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#77766F',
   },
 });

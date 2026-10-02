@@ -224,7 +224,7 @@ export default function SignupScreen() {
             style={styles.backBtn}
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={20} color="#171716" />
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
         <View style={styles.stepInfo}>
@@ -449,7 +449,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: 'transparent',
   },
   innerWrapper: {
     flex: 1,
@@ -465,15 +465,15 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#D7D2C8',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(251, 250, 247, 0.90)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    color: '#77766F',
+    color: 'rgba(255,255,255,0.65)',
     letterSpacing: 1.5,
     marginBottom: 6,
   },
@@ -492,12 +492,12 @@ const styles = StyleSheet.create({
     width: 140,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E5D8C8',
+    backgroundColor: 'rgba(255,255,255,0.20)',
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#171817',
+    backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
   scrollBody: {
@@ -505,15 +505,15 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     width: '100%',
-    backgroundColor: 'rgba(251, 250, 247, 0.95)',
+    backgroundColor: 'rgba(10, 12, 18, 0.45)',
     borderRadius: RADII['2xl'],
     padding: 24,
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(255,255,255,0.18)',
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px) saturate(180%)',
-        boxShadow: '0 8px 24px -4px rgba(23, 24, 23, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(24px) saturate(160%)',
+        boxShadow: '0 8px 32px -4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
       },
       default: {},
     }),
@@ -522,14 +522,14 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 28,
     fontWeight: '800',
-    color: '#171817',
+    color: '#FFFFFF',
     letterSpacing: -0.6,
     marginBottom: 8,
   },
   stepSubtitle: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: '#45453F',
+    color: 'rgba(255,255,255,0.70)',
     lineHeight: 22,
     marginBottom: 26,
   },
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 13,
     fontWeight: '700',
-    color: '#171716',
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: 10,
     letterSpacing: 0.1,
   },
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   avatarGlowWrapper: {
     padding: 4,
     borderRadius: 70,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     marginBottom: 18,
     ...SHADOWS.soft,
   },
@@ -568,23 +568,23 @@ const styles = StyleSheet.create({
   uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255,255,255,0.25)',
     paddingVertical: 12,
     paddingHorizontal: 22,
     borderRadius: RADII.full,
   },
   uploadBtnText: {
     fontFamily: FONTS.bold,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
   presetHeading: {
     fontFamily: FONTS.semiBold,
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: 'rgba(255,255,255,0.60)',
     textAlign: 'center',
     marginTop: 18,
     marginBottom: 12,

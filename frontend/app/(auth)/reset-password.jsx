@@ -463,7 +463,7 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F6F2',
+    backgroundColor: 'transparent',
   },
   bg: {
     flex: 1,
@@ -491,9 +491,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: RADII.sm,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: '#D9D8D3',
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },

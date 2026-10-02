@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '../lib/authContext';
 import { ThemeProvider, useTheme } from '../lib/themeContext';
 import { COLORS, FONTS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
+import TransitionManager from '../components/TransitionManager';
 
 function AuthRouteGuard({ children }) {
   const { session, user, profile, isLoading, isPasswordRecovery } = useAuth();
@@ -27,7 +28,14 @@ function AuthRouteGuard({ children }) {
     if (isLoading) return;
 
     // Allow QA showcase tester or explicit preview mode from Test Navigator
-    const isPreviewMode = searchParams?.preview === 'true';
+    let isPreviewMode = searchParams?.preview === 'true';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (isPreviewMode) {
+        try { window.sessionStorage?.setItem('__maybewe_preview__', 'true'); } catch (e) {}
+      } else if (window.sessionStorage?.getItem('__maybewe_preview__') === 'true') {
+        isPreviewMode = true;
+      }
+    }
     const firstSegment = segments[0] || '';
     const inAuthGroup = firstSegment === '(auth)';
     const inShowcase = firstSegment === 'showcase';
@@ -47,34 +55,38 @@ function AuthRouteGuard({ children }) {
     const isVerified = profile?.verification_status === 'verified';
     const isAuthenticated = Boolean(user || session?.user || profile?.id);
 
-    console.log('[AuthGuard] route:', segments.join('/'), 'isAuthenticated:', isAuthenticated, 'isVerified:', isVerified);
+    const isPublicAuthScreen =
+      currentSubRoute === 'welcome' ||
+      currentSubRoute === 'login' ||
+      currentSubRoute === 'signup' ||
+      currentSubRoute === 'forgot-password' ||
+      currentSubRoute === 'reset-password';
 
-    if (isAuthenticated) {
-      // User is logged in
-      if (!isVerified) {
-        // Unverified user MUST complete selfie verification before entering any authenticated area (except welcome which plays the intro video first)
-        if (!inAuthGroup || (currentSubRoute !== 'verification' && currentSubRoute !== 'guidelines' && currentSubRoute !== 'welcome')) {
-          router.replace('/(auth)/verification');
-        }
-      } else {
-        // Verified user: redirect directly from auth screens or theme-selection to tabs (except welcome which plays the intro video first)
-        if (inAuthGroup && (currentSubRoute === 'login' || currentSubRoute === 'signup' || currentSubRoute === 'forgot-password' || currentSubRoute === 'theme-selection')) {
-          router.replace('/(tabs)');
-        }
-      }
-    } else {
-      // User is not logged in: only public auth screens are allowed
-      const isPublicAuthScreen =
-        currentSubRoute === 'welcome' ||
-        currentSubRoute === 'login' ||
-        currentSubRoute === 'signup' ||
-        currentSubRoute === 'forgot-password' ||
-        currentSubRoute === 'reset-password';
+    // 1. If user is on ANY public auth screen (welcome, login, signup, forgot-password, reset-password),
+    // NEVER redirect them away. Allow free navigation!
+    if (inAuthGroup && isPublicAuthScreen) {
+      return;
+    }
 
-      if (!inAuthGroup || !isPublicAuthScreen) {
-        console.log('[AuthGuard] Unauthenticated access to', segments.join('/'), '-> Redirecting to /(auth)/welcome');
-        router.replace('/(auth)/welcome');
+    // 2. When opening the site root (empty route or /), unverified/unauthenticated visitors must land on welcome
+    if (!inAuthGroup && (!isAuthenticated || !isVerified)) {
+      console.log('[AuthGuard] Entry route -> Redirecting to /(auth)/welcome');
+      router.replace('/(auth)/welcome');
+      return;
+    }
+
+    // 3. If authenticated but unverified, only protected app areas require verification
+    if (isAuthenticated && !isVerified) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/verification');
       }
+      return;
+    }
+
+    // 4. If unauthenticated visitor tries to access protected app areas
+    if (!isAuthenticated && !inAuthGroup) {
+      console.log('[AuthGuard] Unauthenticated access to', segments.join('/'), '-> Redirecting to /(auth)/welcome');
+      router.replace('/(auth)/welcome');
     }
   }, [session, user, profile, isLoading, isPasswordRecovery, segments, searchParams]);
 
@@ -205,198 +217,480 @@ export default function RootLayout() {
               margin: 0 !important;
               box-shadow: none !important;
               border-radius: 0 !important;
-          /* ============================================================ */
-          /* LUXURY PAGE TRANSITION PRESETS (Cubic-Bezier Springs)         */
-          /* ============================================================ */
-          @keyframes pageLoginEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(38px) scale(0.965);
-              filter: blur(10px);
-            }
-            65% {
-              filter: blur(0px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-              filter: blur(0px);
-            }
           }
-          .page-trans-login {
-            animation: pageLoginEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity, filter;
-          }
+        }
 
-          @keyframes pageGuidelinesEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(44px) scale(0.985);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-          .page-trans-guidelines {
-            animation: pageGuidelinesEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        /* ============================================================ */
+        /* MAYBEWE CINEMATIC PAGE TRANSITION SYSTEM                     */
+        /* ============================================================ */
+        #maybewe-transition-overlay {
+          position: fixed !important;
+          inset: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 999999 !important;
+          pointer-events: none !important;
+          opacity: 0;
+          visibility: hidden;
+          overflow: hidden !important;
+        }
 
-          @keyframes pageSignupEntrance {
-            0% {
-              opacity: 0;
-              transform: translateX(48px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-          .page-trans-signup {
-            animation: pageSignupEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        #maybewe-transition-overlay.is-active {
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: none !important;
+        }
 
-          @keyframes pageVerificationEntrance {
-            0% {
-              opacity: 0;
-              transform: scale(0.92);
-              filter: brightness(1.2);
-            }
-            100% {
-              opacity: 1;
-              transform: scale(1);
-              filter: brightness(1);
-            }
-          }
-          .page-trans-verification {
-            animation: pageVerificationEntrance 600ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity, filter;
-          }
+        /* Staggered page content entrance when transition finishes */
+        [data-page-ready="true"] h1,
+        [data-page-ready="true"] [role="heading"],
+        [data-page-ready="true"] .hero-title {
+          animation: mwPageContentFadeUp 480ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+        }
 
-          @keyframes pageHomeEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(28px) scale(0.988);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-          .page-trans-home {
-            animation: pageHomeEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        [data-page-ready="true"] p,
+        [data-page-ready="true"] .hero-subtitle,
+        [data-page-ready="true"] .section-desc {
+          animation: mwPageContentFadeUp 520ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both !important;
+        }
 
-          @keyframes pageDiscoveryEntrance {
-            0% {
-              opacity: 0;
-              transform: translate(36px, 24px) rotate(-1.5deg);
-            }
-            100% {
-              opacity: 1;
-              transform: translate(0, 0) rotate(0deg);
-            }
-          }
-          .page-trans-discovery {
-            animation: pageDiscoveryEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        [data-page-ready="true"] [data-card="true"],
+        [data-page-ready="true"] .travel-card,
+        [data-page-ready="true"] .itinerary-card {
+          animation: mwPageCardScale 540ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both !important;
+        }
 
-          @keyframes pageTripsEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(-32px);
-            }
-            70% {
-              transform: translateY(4px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0);
-            }
+        @keyframes mwPageContentFadeUp {
+          0% {
+            opacity: 0.15;
+            transform: translateY(16px);
           }
-          .page-trans-trips {
-            animation: pageTripsEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
+          100% {
+            opacity: 1;
+            transform: translateY(0);
           }
+        }
 
-          @keyframes pageMatchesEntrance {
-            0% {
-              opacity: 0;
-              transform: translateX(42px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateX(0);
-            }
+        @keyframes mwPageCardScale {
+          0% {
+            opacity: 0.2;
+            transform: translateY(18px) scale(0.98);
           }
-          .page-trans-matches {
-            animation: pageMatchesEntrance 550ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
           }
+        }
 
-          @keyframes pageProfileEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(32px) scale(0.98);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-          .page-trans-profile {
-            animation: pageProfileEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        /* ------------------------------------------------------------ */
+        /* VARIANT 1: CURTAIN (Dual-Layer Champagne & Obsidian Silk)    */
+        /* ------------------------------------------------------------ */
+        .mw-curtain-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
 
-          @keyframes pageSettingsEntrance {
-            0% {
-              opacity: 0;
-              transform: translateX(50px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-          .page-trans-settings {
-            animation: pageSettingsEntrance 520ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        .mw-curtain-accent {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 100%;
+          background: #D9C8B2;
+          box-shadow: 0 0 40px rgba(185, 154, 94, 0.3);
+          will-change: transform;
+        }
 
-          @keyframes pageReviewEntrance {
-            0% {
-              opacity: 0;
-              transform: translateY(55px) scale(0.95);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-          .page-trans-review {
-            animation: pageReviewEntrance 550ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
+        .mw-curtain-primary {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 100%;
+          background: #171817;
+          will-change: transform;
+        }
 
-          @keyframes pageShowcaseEntrance {
-            0% {
-              opacity: 0;
-              transform: scale(0.95);
-            }
-            100% {
-              opacity: 1;
-              transform: scale(1);
-            }
+        .mw-curtain-brand-glow {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, rgba(231, 211, 181, 0.12) 0%, transparent 70%);
+        }
+
+        /* Forward Curtain: Left to Right */
+        .variant-curtain.dir-forward.state-covering .mw-curtain-accent {
+          animation: mwCurtainSweepInForward 280ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-curtain.dir-forward.state-covering .mw-curtain-primary {
+          animation: mwCurtainSweepInForward 280ms cubic-bezier(0.77, 0, 0.175, 1) 30ms both;
+        }
+
+        .variant-curtain.dir-forward.state-revealing .mw-curtain-primary {
+          animation: mwCurtainSweepOutForward 340ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-curtain.dir-forward.state-revealing .mw-curtain-accent {
+          animation: mwCurtainSweepOutForward 340ms cubic-bezier(0.77, 0, 0.175, 1) 30ms both;
+        }
+
+        @keyframes mwCurtainSweepInForward {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(0%); }
+        }
+
+        @keyframes mwCurtainSweepOutForward {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+
+        /* Backward Curtain: Right to Left */
+        .variant-curtain.dir-backward.state-covering .mw-curtain-accent {
+          animation: mwCurtainSweepInBackward 280ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-curtain.dir-backward.state-covering .mw-curtain-primary {
+          animation: mwCurtainSweepInBackward 280ms cubic-bezier(0.77, 0, 0.175, 1) 30ms both;
+        }
+
+        .variant-curtain.dir-backward.state-revealing .mw-curtain-primary {
+          animation: mwCurtainSweepOutBackward 340ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-curtain.dir-backward.state-revealing .mw-curtain-accent {
+          animation: mwCurtainSweepOutBackward 340ms cubic-bezier(0.77, 0, 0.175, 1) 30ms both;
+        }
+
+        @keyframes mwCurtainSweepInBackward {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(0%); }
+        }
+
+        @keyframes mwCurtainSweepOutBackward {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-100%); }
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 2: PAGE REVEAL (Angled Obsidian & Champagne Border) */
+        /* ------------------------------------------------------------ */
+        .mw-reveal-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .mw-reveal-panel {
+          position: absolute;
+          inset: 0;
+          background: #171817;
+          will-change: transform;
+        }
+
+        .mw-reveal-gold-line {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, transparent, #E7D3B5, #B99A5E, transparent);
+          box-shadow: 0 0 15px rgba(231, 211, 181, 0.6);
+        }
+
+        .variant-page-reveal.state-covering .mw-reveal-panel {
+          animation: mwRevealIn 270ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .variant-page-reveal.state-revealing .mw-reveal-panel {
+          animation: mwRevealOut 330ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes mwRevealIn {
+          0% { transform: translateY(100%); }
+          100% { transform: translateY(0%); }
+        }
+
+        @keyframes mwRevealOut {
+          0% { transform: translateY(0%); }
+          100% { transform: translateY(-100%); }
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 3: ROMANTIC PARTICLE & LIGHT REVEAL                  */
+        /* ------------------------------------------------------------ */
+        .mw-particle-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          background: #171817;
+          overflow: hidden;
+        }
+
+        .mw-particle-radial-light {
+          position: absolute;
+          inset: -20%;
+          background: radial-gradient(circle at 50% 50%, rgba(231, 211, 181, 0.35) 0%, rgba(185, 154, 94, 0.15) 45%, rgba(23, 24, 23, 0.98) 75%);
+          animation: mwRadialGlowPulse 580ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .mw-particle-stars {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+
+        .mw-star {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #EFDCCC;
+          box-shadow: 0 0 12px #E7D3B5, 0 0 24px #B99A5E;
+          opacity: 0;
+          animation: mwStarFloat 580ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes mwRadialGlowPulse {
+          0% { opacity: 0; transform: scale(0.7); }
+          50% { opacity: 1; transform: scale(1.05); }
+          100% { opacity: 0; transform: scale(1.3); }
+        }
+
+        @keyframes mwStarFloat {
+          0% {
+            opacity: 0;
+            transform: translateY(20px) scale(0.5);
           }
-          .page-trans-showcase {
-            animation: pageShowcaseEntrance 500ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
+          40% {
+            opacity: 1;
+            transform: translateY(0) scale(1.2);
           }
+          100% {
+            opacity: 0;
+            transform: translateY(-28px) scale(0.6);
+          }
+        }
+
+        .variant-particle-light.state-covering {
+          animation: mwFadeIn 260ms ease both;
+        }
+        .variant-particle-light.state-revealing {
+          animation: mwFadeOut 340ms ease both;
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 4: SOFT REVEAL (Expanding Radial Mask)               */
+        /* ------------------------------------------------------------ */
+        .mw-soft-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          background: #171817;
+          will-change: clip-path;
+        }
+
+        .variant-soft-reveal.state-covering .mw-soft-container {
+          animation: mwSoftCover 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .variant-soft-reveal.state-revealing .mw-soft-container {
+          animation: mwSoftReveal 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes mwSoftCover {
+          0% { clip-path: circle(0% at 50% 50%); }
+          100% { clip-path: circle(140% at 50% 50%); }
+        }
+
+        @keyframes mwSoftReveal {
+          0% { clip-path: circle(140% at 50% 50%); }
+          100% { clip-path: circle(0% at 50% 50%); }
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 5: SCALE / ZOOM (Cinematic Depth Transition)         */
+        /* ------------------------------------------------------------ */
+        .mw-zoom-container {
+          position: absolute;
+          inset: 0;
+          background: rgba(23, 24, 23, 0.75);
+          backdrop-filter: blur(4px);
+          will-change: opacity;
+        }
+
+        .variant-scale-zoom.state-covering .mw-zoom-container {
+          animation: mwFadeIn 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .variant-scale-zoom.state-revealing .mw-zoom-container {
+          animation: mwFadeOut 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 6: GRAND ENTRANCE (Auth to Main Website Double Veil) */
+        /* ------------------------------------------------------------ */
+        .mw-grand-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
+
+        .mw-grand-panel-left {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: 50.5%;
+          background: #171817;
+          border-right: 1.5px solid rgba(231, 211, 181, 0.4);
+          box-shadow: 4px 0 25px rgba(0, 0, 0, 0.6);
+          will-change: transform;
+        }
+
+        .mw-grand-panel-right {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          right: 0;
+          width: 50.5%;
+          background: #171817;
+          border-left: 1.5px solid rgba(231, 211, 181, 0.4);
+          box-shadow: -4px 0 25px rgba(0, 0, 0, 0.6);
+          will-change: transform;
+        }
+
+        .mw-grand-crest {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+          pointer-events: none;
+        }
+
+        .mw-crest-glow {
+          position: absolute;
+          width: 220px;
+          height: 220px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(231, 211, 181, 0.28) 0%, transparent 70%);
+        }
+
+        .mw-crest-wordmark {
+          font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-size: 34px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+          color: #EFDCCC;
+          text-shadow: 0 0 25px rgba(231, 211, 181, 0.5);
+        }
+
+        .mw-crest-subtitle {
+          font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 3px;
+          color: #B99A5E;
+          margin-top: 6px;
+        }
+
+        .variant-grand-entrance.state-covering .mw-grand-panel-left {
+          animation: mwGrandCloseLeft 280ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-grand-entrance.state-covering .mw-grand-panel-right {
+          animation: mwGrandCloseRight 280ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-grand-entrance.state-covering .mw-grand-crest {
+          animation: mwGrandCrestIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .variant-grand-entrance.state-revealing .mw-grand-panel-left {
+          animation: mwGrandOpenLeft 360ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-grand-entrance.state-revealing .mw-grand-panel-right {
+          animation: mwGrandOpenRight 360ms cubic-bezier(0.77, 0, 0.175, 1) both;
+        }
+        .variant-grand-entrance.state-revealing .mw-grand-crest {
+          animation: mwGrandCrestOut 240ms ease both;
+        }
+
+        @keyframes mwGrandCloseLeft {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(0%); }
+        }
+
+        @keyframes mwGrandCloseRight {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(0%); }
+        }
+
+        @keyframes mwGrandOpenLeft {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-100%); }
+        }
+
+        @keyframes mwGrandOpenRight {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+
+        @keyframes mwGrandCrestIn {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes mwGrandCrestOut {
+          0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.06); }
+        }
+
+        /* ------------------------------------------------------------ */
+        /* VARIANT 7: SOFT SLIDE (Login <-> Signup)                     */
+        /* ------------------------------------------------------------ */
+        .mw-slide-container {
+          position: absolute;
+          inset: 0;
+          background: rgba(23, 24, 23, 0.5);
+          backdrop-filter: blur(6px);
+          will-change: opacity;
+        }
+
+        .variant-soft-slide.state-covering .mw-slide-container {
+          animation: mwFadeIn 220ms ease both;
+        }
+        .variant-soft-slide.state-revealing .mw-slide-container {
+          animation: mwFadeOut 260ms ease both;
+        }
+
+        /* ------------------------------------------------------------ */
+        /* FALLBACK REDUCED MOTION                                      */
+        /* ------------------------------------------------------------ */
+        .mw-reduced-veil {
+          position: absolute;
+          inset: 0;
+          background: #171817;
+          will-change: opacity;
+        }
+
+        .variant-reduced-fade.state-covering .mw-reduced-veil {
+          animation: mwFadeIn 100ms ease both;
+        }
+        .variant-reduced-fade.state-revealing .mw-reduced-veil {
+          animation: mwFadeOut 120ms ease both;
+        }
+
+        @keyframes mwFadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+
+        @keyframes mwFadeOut {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
         `;
         document.head.appendChild(style);
       }
@@ -410,57 +704,59 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthRouteGuard>
               <ThemedAppContainer>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    animation: 'fade',
-                  }}
-                >
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
-                  <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
-                  <Stack.Screen
-                    name="chat/[id]"
-                    options={{
-                      headerShown: false,
-                      presentation: 'card',
-                      animation: 'slide_from_right',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="review/[id]"
-                    options={{
-                      headerShown: false,
-                      presentation: 'modal',
-                      animation: 'slide_from_bottom',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="settings"
-                    options={{
-                      headerShown: false,
-                      presentation: 'card',
-                      animation: 'slide_from_right',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="showcase"
-                    options={{
+                <TransitionManager>
+                  <Stack
+                    screenOptions={{
                       headerShown: false,
                       animation: 'fade',
                     }}
-                  />
-                  <Stack.Screen
-                    name="+not-found"
-                    options={{
-                      headerShown: false,
-                      animation: 'fade',
-                    }}
-                  />
-                </Stack>
+                  >
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
+                    <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+                    <Stack.Screen
+                      name="chat/[id]"
+                      options={{
+                        headerShown: false,
+                        presentation: 'card',
+                        animation: 'slide_from_right',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="review/[id]"
+                      options={{
+                        headerShown: false,
+                        presentation: 'modal',
+                        animation: 'slide_from_bottom',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="settings"
+                      options={{
+                        headerShown: false,
+                        presentation: 'card',
+                        animation: 'slide_from_right',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="showcase"
+                      options={{
+                        headerShown: false,
+                        animation: 'fade',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="+not-found"
+                      options={{
+                        headerShown: false,
+                        animation: 'fade',
+                      }}
+                    />
+                  </Stack>
+                  {/* Always visible Floating Test Navigator */}
+                  <TestNavigatorModal />
+                </TransitionManager>
               </ThemedAppContainer>
             </AuthRouteGuard>
-            {/* Always visible Floating Test Navigator */}
-            <TestNavigatorModal />
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>

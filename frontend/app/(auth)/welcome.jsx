@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
   Platform,
-  TextInput,
-  ActivityIndicator,
-  ScrollView,
-  KeyboardAvoidingView,
   Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -18,262 +13,129 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS, RADII } from '../../lib/theme';
-import { useAuth } from '../../lib/authContext';
+import { useTransitionManager } from '../../components/TransitionManager';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session, user, profile, login, signup } = useAuth();
+  const { navigateWithTransition } = useTransitionManager();
 
-  const isVerified = profile?.verification_status === 'verified';
-  const isAuthenticated = Boolean(user || session?.user || profile?.id);
-
-  // Video playback & transition states
-  const [videoOpacity, setVideoOpacity] = useState(1);
-  const [videoDismissed, setVideoDismissed] = useState(false);
-  const [contentVisible, setContentVisible] = useState(false);
-
-  // View mode: 'buttons' (initial Sign In / Sign Up buttons) | 'signin' | 'signup'
-  const [authViewMode, setAuthViewMode] = useState('buttons');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Options coming down from under the MaybeWe text
-  const optionsSlideAnim = useRef(new Animated.Value(-24)).current;
-  const optionsFadeAnim = useRef(new Animated.Value(0)).current;
-
-  // Video element reference
+  // State: whether the intro video has finished playing once
+  const [introFinished, setIntroFinished] = useState(false);
   const videoRef = useRef(null);
 
-  // Prevent scrolling while the video is playing
+  // Set document title on Web
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'MaybeWe — Meet someone. Go somewhere.';
-      if (!contentVisible && !videoDismissed) {
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-      }
     }
-  }, [contentVisible, videoDismissed]);
+  }, []);
 
-  // Handle video playback and ended event
+  // Completion handler: video stops on final frame as background, options reveal
+  const finishIntro = useCallback(() => {
+    setIntroFinished((prev) => {
+      if (prev) return prev;
+      console.log('[WelcomeScreen] Intro video completed. Freezing background and revealing Sign In / Sign Up options.');
+      const video = videoRef.current;
+      if (video) {
+        try {
+          video.pause();
+          if (video.duration && Number.isFinite(video.duration)) {
+            video.currentTime = video.duration;
+          }
+        } catch (e) {}
+      }
+      return true;
+    });
+  }, []);
+
+  // Safe navigation helper with transition
+  const handleNavigate = (route) => {
+    if (typeof navigateWithTransition === 'function') {
+      navigateWithTransition(route);
+    } else {
+      router.push(route);
+    }
+  };
+
+  // Video event listeners & single-play background management
   useEffect(() => {
+    if (Platform.OS !== 'web') {
+      // Native fallback: reveal options immediately
+      setIntroFinished(true);
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
-    let hasEnded = false;
-
-    const handleVideoEnded = () => {
-      if (hasEnded) return;
-      hasEnded = true;
-      console.log('[WelcomeScreen] EXACT Sequence 01.mp4 has ended naturally.');
-
-      // 1. Brief cinematic pause on the final frame (400ms)
-      setTimeout(() => {
-        // 2. Smoothly fade the video overlay out (700ms)
-        setVideoOpacity(0);
-
-        // Check if user is already authenticated (returning user)
-        if (isAuthenticated) {
-          setTimeout(() => {
-            setVideoDismissed(true);
-            if (Platform.OS === 'web' && typeof document !== 'undefined') {
-              document.body.style.overflow = '';
-              document.documentElement.style.overflow = '';
-            }
-            if (isVerified) {
-              router.replace('/(tabs)');
-            } else {
-              router.replace('/(auth)/verification');
-            }
-          }, 700);
-          return;
-        }
-
-        // 3. For unauthenticated visitors: Animate options DOWN from under the MaybeWe text
-        setTimeout(() => {
-          setContentVisible(true);
-          const useNativeDriver = Platform.OS !== 'web';
-
-          Animated.parallel([
-            Animated.timing(optionsFadeAnim, {
-              toValue: 1,
-              duration: 700,
-              useNativeDriver,
-            }),
-            Animated.spring(optionsSlideAnim, {
-              toValue: 0,
-              friction: 7,
-              tension: 38,
-              useNativeDriver,
-            }),
-          ]).start(() => {
-            setVideoDismissed(true);
-            if (Platform.OS === 'web' && typeof document !== 'undefined') {
-              document.body.style.overflow = '';
-              document.documentElement.style.overflow = '';
-            }
-          });
-        }, 150);
-      }, 350);
-    };
-
-    video.addEventListener('ended', handleVideoEnded);
-
+    // Enforce muted and playsinline for universal browser autoplay
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
-    video.loop = false;
-    video.controls = false;
+    try {
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', 'true');
+    } catch (e) {}
 
-    const startPlayback = () => {
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('[WelcomeScreen] Autoplay deferred:', err);
+    const handleEnded = () => {
+      console.log('[WelcomeScreen] Video reached end event naturally.');
+      finishIntro();
+    };
+
+    const handleTimeUpdate = () => {
+      // Only finish when the video has actually played to the end (duration > 5s and within 0.1s of end)
+      if (
+        video.duration &&
+        Number.isFinite(video.duration) &&
+        video.duration > 5 &&
+        video.currentTime >= video.duration - 0.1
+      ) {
+        finishIntro();
+      }
+    };
+
+    const handleError = (e) => {
+      console.warn('[WelcomeScreen] Video playback issue:', e);
+    };
+
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('error', handleError);
+
+    const playVideo = () => {
+      video.muted = true;
+      const p = video.play();
+      if (p !== undefined) {
+        p.catch((err) => {
+          console.warn('[WelcomeScreen] Autoplay deferred by browser:', err);
         });
       }
     };
 
-    if (video.readyState >= 3) {
-      startPlayback();
+    if (video.readyState >= 2) {
+      playVideo();
     } else {
-      video.addEventListener('canplay', startPlayback, { once: true });
+      video.addEventListener('loadeddata', playVideo, { once: true });
+      video.addEventListener('canplay', playVideo, { once: true });
     }
 
     return () => {
-      video.removeEventListener('ended', handleVideoEnded);
-      video.removeEventListener('canplay', startPlayback);
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('loadeddata', playVideo);
+      video.removeEventListener('canplay', playVideo);
     };
-  }, [isAuthenticated, isVerified]);
-
-  // Switch mode with smooth animation
-  const switchAuthMode = (newMode) => {
-    setErrorMessage('');
-    const useNativeDriver = Platform.OS !== 'web';
-    Animated.sequence([
-      Animated.timing(optionsFadeAnim, {
-        toValue: 0.2,
-        duration: 120,
-        useNativeDriver,
-      }),
-      Animated.timing(optionsSlideAnim, {
-        toValue: -16,
-        duration: 120,
-        useNativeDriver,
-      }),
-    ]).start(() => {
-      setAuthViewMode(newMode);
-      Animated.parallel([
-        Animated.timing(optionsFadeAnim, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver,
-        }),
-        Animated.spring(optionsSlideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 45,
-          useNativeDriver,
-        }),
-      ]).start();
-    });
-  };
-
-  // Sign In handler
-  const handleSignIn = async () => {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setErrorMessage('Please enter both your email and password.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage('');
-
-    try {
-      console.log('[WelcomeAuth] Initiating sign-in for:', trimmedEmail);
-      const res = await login(trimmedEmail, password);
-
-      if (!res?.success) {
-        setErrorMessage(res?.error || 'Unable to sign in. Please verify your credentials.');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(false);
-      router.replace('/(tabs)');
-    } catch (err) {
-      console.warn('[WelcomeAuth] Sign in error:', err);
-      setLoading(false);
-      setErrorMessage(err.message || 'An unexpected error occurred during sign-in.');
-    }
-  };
-
-  // Sign Up handler
-  const handleSignUp = async () => {
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-
-    if (!trimmedName) {
-      setErrorMessage('Please enter your full name.');
-      return;
-    }
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage('');
-
-    try {
-      console.log('[WelcomeAuth] Initiating account creation for:', trimmedEmail);
-      const res = await signup({
-        name: trimmedName,
-        email: trimmedEmail,
-        password,
-        age: 24,
-        gender: 'Not specified',
-        travel_styles: ['Culture', 'Adventure'],
-        languages: ['English'],
-      });
-
-      if (!res?.success) {
-        setErrorMessage(res?.error || 'Unable to create account. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(false);
-      router.replace('/(tabs)');
-    } catch (err) {
-      console.warn('[WelcomeAuth] Sign up error:', err);
-      setLoading(false);
-      setErrorMessage(err.message || 'An unexpected error occurred during account creation.');
-    }
-  };
+  }, [finishIntro]);
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
 
       {/* ============================================================ */}
-      {/* 1. CINEMATIC SUNSET CLOUD ENTRANCE BACKGROUND                */}
+      {/* 1. CINEMATIC FALLBACK IMAGE                                   */}
       {/* ============================================================ */}
       <View style={styles.backgroundLayer} pointerEvents="none">
         <Image
@@ -281,433 +143,165 @@ export default function WelcomeScreen() {
           style={styles.backgroundImage}
           resizeMode="cover"
         />
-        <LinearGradient
-          colors={['rgba(0, 0, 0, 0.10)', 'rgba(0, 0, 0, 0.18)', 'rgba(0, 0, 0, 0.42)']}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="none"
-        />
       </View>
 
       {/* ============================================================ */}
-      {/* 2. EXACT INTRO VIDEO (Full-screen, covers viewport)          */}
+      {/* 2. CINEMATIC VIDEO BACKGROUND (Plays once & stays on final frame) */}
       {/* ============================================================ */}
-      {!videoDismissed && (
+      {Platform.OS === 'web' && (
         <View
           id="intro-video-container"
-          style={[
-            styles.videoContainer,
-            {
-              opacity: videoOpacity,
-              pointerEvents: videoOpacity === 0 ? 'none' : 'auto',
-            },
-          ]}
+          style={styles.videoContainer}
+          onClick={() => {
+            // Tap anywhere on video to finish immediately & show options
+            if (!introFinished) finishIntro();
+          }}
         >
-          {Platform.OS === 'web' && (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                webkit-playsinline="true"
-                controls={false}
-                loop={false}
-                preload="auto"
-                disablePictureInPicture
-                disableRemotePlayback
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  objectPosition: 'center',
-                  backgroundColor: '#000000',
-                  display: 'block',
-                  border: 'none',
-                  outline: 'none',
-                  transform: 'translateZ(0)',
-                  willChange: 'transform, opacity',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <source src="/Sequence 01.mp4?v=3" type="video/mp4" />
-                <source src="/Sequence%2001.mp4?v=3" type="video/mp4" />
-              </video>
-            </>
-          )}
+          <video
+            ref={(el) => {
+              videoRef.current = el;
+              if (el) {
+                el.muted = true;
+                el.defaultMuted = true;
+                el.playsInline = true;
+              }
+            }}
+            autoPlay
+            muted
+            playsInline
+            webkit-playsinline="true"
+            controls={false}
+            loop={false}
+            preload="auto"
+            disablePictureInPicture
+            disableRemotePlayback
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              backgroundColor: '#0F1115',
+              display: 'block',
+              border: 'none',
+              outline: 'none',
+              cursor: introFinished ? 'default' : 'pointer',
+            }}
+          >
+            <source src="/Sequence 01.mp4" type="video/mp4" />
+            <source src="/Sequence%2001.mp4" type="video/mp4" />
+            <source src="/intro.mp4" type="video/mp4" />
+          </video>
         </View>
       )}
 
       {/* ============================================================ */}
-      {/* 3. MAYBEWE OPTIONS COMING DOWN UNDER THE CURSIVE SCRIPT       */}
+      {/* 3. SOFT CONTRAST GRADIENT (Fades in over final frame)        */}
+      {/* ============================================================ */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.12)', 'rgba(0,0,0,0.52)']}
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            zIndex: 4,
+            opacity: introFinished ? 1 : 0,
+            pointerEvents: 'none',
+            ...Platform.select({
+              web: {
+                transition: 'opacity 0.7s ease',
+              },
+            }),
+          },
+        ]}
+        pointerEvents="none"
+      />
+
+      {/* ============================================================ */}
+      {/* 4. SLEEK SKIP BUTTON (Available during video playback)        */}
+      {/* ============================================================ */}
+      {!introFinished && Platform.OS === 'web' && (
+        <TouchableOpacity
+          style={[styles.skipButton, { top: Math.max(insets.top + 16, 22) }]}
+          onPress={finishIntro}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Skip intro video"
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+          <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
+      )}
+
+      {/* ============================================================ */}
+      {/* 5. OPTIONS SURFACE (Revealed once video finishes playing)    */}
       {/* ============================================================ */}
       <View
         style={[
-          styles.contentContainer,
+          styles.optionsOverlay,
           {
-            pointerEvents: contentVisible ? 'auto' : 'none',
+            paddingBottom: Math.max(insets.bottom + 18, 28),
+            opacity: introFinished ? 1 : 0,
+            pointerEvents: introFinished ? 'auto' : 'none',
+            transform: introFinished ? [{ translateY: 0 }] : [{ translateY: 24 }],
+            ...Platform.select({
+              web: {
+                transition: 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+              },
+            }),
           },
         ]}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardAvoid}
-        >
-          <ScrollView
-            contentContainerStyle={[
-              styles.scrollContent,
-              {
-                paddingTop: Math.max(insets.top + 20, 32),
-                paddingBottom: Math.max(insets.bottom + 20, 36),
-              },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+        <View style={styles.controlsCard}>
+          {/* Sign In Primary Pill Button */}
+          <TouchableOpacity
+            style={styles.pillSignInBtn}
+            onPress={() => handleNavigate('/(auth)/login')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Sign In"
           >
-            {/* Elegant spacer leaving the cursive "May Be We" script completely unobstructed */}
-            <View style={styles.brandScriptSpacer} />
+            <Text style={styles.pillSignInBtnText}>Sign In</Text>
+            <Ionicons name="arrow-forward" size={17} color="#171817" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
 
-            {/* ======================================================== */}
-            {/* OPTIONS COMING DOWN OF THE MAYBEWE TEXT WITH ANIMATION   */}
-            {/* ======================================================== */}
-            <Animated.View
-              style={[
-                styles.optionsContainer,
-                {
-                  opacity: optionsFadeAnim,
-                  transform: [{ translateY: optionsSlideAnim }],
-                },
-              ]}
-            >
-              {authViewMode === 'buttons' ? (
-                /* ============================================== */
-                /* INITIAL STATE: SIGN IN & SIGN UP PILL BUTTONS  */
-                /* ============================================== */
-                <View style={styles.buttonsSurface}>
-                  {/* Sign In Primary Pill Button */}
-                  <TouchableOpacity
-                    style={styles.pillSignInBtn}
-                    onPress={() => switchAuthMode('signin')}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sign In"
-                  >
-                    <Text style={styles.pillSignInBtnText}>Sign In</Text>
-                    <Ionicons name="arrow-forward" size={17} color="#171817" style={{ marginLeft: 8 }} />
-                  </TouchableOpacity>
+          {/* Sign Up Frosted Outline Pill Button */}
+          <TouchableOpacity
+            style={styles.pillSignUpBtn}
+            onPress={() => handleNavigate('/(auth)/signup')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Sign Up"
+          >
+            <Text style={styles.pillSignUpBtnText}>Sign Up</Text>
+          </TouchableOpacity>
 
-                  {/* Sign Up Frosted Outline Pill Button */}
-                  <TouchableOpacity
-                    style={styles.pillSignUpBtn}
-                    onPress={() => switchAuthMode('signup')}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sign Up"
-                  >
-                    <Text style={styles.pillSignUpBtnText}>Sign Up</Text>
-                  </TouchableOpacity>
+          {/* Explore MaybeWe (Guest Demo) */}
+          <TouchableOpacity
+            style={styles.guestExploreBtn}
+            onPress={() => handleNavigate('/(tabs)')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Explore MaybeWe (Guest Demo)"
+          >
+            <Ionicons name="sparkles" size={14} color="#F2D184" style={{ marginRight: 7 }} />
+            <Text style={styles.guestExploreText}>Explore MaybeWe (Guest Demo)</Text>
+          </TouchableOpacity>
 
-                  {/* Forgot Password Link */}
-                  <TouchableOpacity
-                    onPress={() => router.push('/(auth)/forgot-password')}
-                    style={styles.forgotBtn}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Forgot Password?"
-                  >
-                    <Text style={styles.forgotBtnText}>Forgot Password?</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : authViewMode === 'signin' ? (
-                /* ============================================== */
-                /* SIGN IN FORM (Animated Down under MaybeWe)     */
-                /* ============================================== */
-                <View style={styles.glassFormCard}>
-                  <View style={styles.formCardHeader}>
-                    <Text style={styles.formCardTitle}>WELCOME BACK</Text>
-                    <Text style={styles.formCardSubtitle}>Sign in to continue your journey.</Text>
-                  </View>
+          {/* Forgot Password Link */}
+          <TouchableOpacity
+            onPress={() => handleNavigate('/(auth)/forgot-password')}
+            style={styles.forgotBtn}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Forgot Password?"
+          >
+            <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+          </TouchableOpacity>
 
-                  {/* Email Field */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Email</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="mail-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="name@traveler.io"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="next"
-                      />
-                    </View>
-                  </View>
-
-                  {/* Password Field */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Password</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="Your password"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        value={password}
-                        onChangeText={(text) => {
-                          setPassword(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="done"
-                        onSubmitEditing={handleSignIn}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowPassword(!showPassword)}
-                        style={styles.eyeBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={18}
-                          color="rgba(255, 255, 255, 0.85)"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Forgot Password Link */}
-                  <TouchableOpacity
-                    onPress={() => router.push('/(auth)/forgot-password')}
-                    style={styles.formForgotBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.formForgotText}>Forgot Password?</Text>
-                  </TouchableOpacity>
-
-                  {/* Error Banner */}
-                  {errorMessage ? (
-                    <View style={styles.glassErrorBox}>
-                      <Ionicons name="alert-circle" size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-                      <Text style={styles.glassErrorText}>{errorMessage}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* Submit SIGN IN */}
-                  <TouchableOpacity
-                    style={[styles.primaryActionBtn, loading && styles.btnDisabled]}
-                    onPress={handleSignIn}
-                    disabled={loading}
-                    activeOpacity={0.85}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color="#171817" />
-                    ) : (
-                      <Text style={styles.primaryActionBtnText}>SIGN IN</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Switch to Sign Up */}
-                  <View style={styles.switchRow}>
-                    <Text style={styles.switchPromptText}>Don't have an account? </Text>
-                    <TouchableOpacity
-                      onPress={() => switchAuthMode('signup')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.switchActionText}>SIGN UP</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Back to Options button */}
-                  <TouchableOpacity
-                    onPress={() => switchAuthMode('buttons')}
-                    style={styles.backToOverviewBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.backToOverviewText}>← Back to overview</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                /* ============================================== */
-                /* SIGN UP FORM (Animated Down under MaybeWe)     */
-                /* ============================================== */
-                <View style={styles.glassFormCard}>
-                  <View style={styles.formCardHeader}>
-                    <Text style={styles.formCardTitle}>CREATE ACCOUNT</Text>
-                    <Text style={styles.formCardSubtitle}>Join MaybeWe and find your travel companion.</Text>
-                  </View>
-
-                  {/* Full Name */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Full Name</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="person-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="Your full name"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        autoCapitalize="words"
-                        autoCorrect={false}
-                        value={name}
-                        onChangeText={(text) => {
-                          setName(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="next"
-                      />
-                    </View>
-                  </View>
-
-                  {/* Email */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Email</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="mail-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="name@traveler.io"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="next"
-                      />
-                    </View>
-                  </View>
-
-                  {/* Password */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Password</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="Create password (min 6 chars)"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        value={password}
-                        onChangeText={(text) => {
-                          setPassword(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="next"
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowPassword(!showPassword)}
-                        style={styles.eyeBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={18}
-                          color="rgba(255, 255, 255, 0.85)"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Confirm Password */}
-                  <View style={styles.glassInputGroup}>
-                    <Text style={styles.glassInputLabel}>Confirm Password</Text>
-                    <View style={styles.glassInputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={18} color="rgba(255, 255, 255, 0.75)" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.glassTextInput}
-                        placeholder="Confirm your password"
-                        placeholderTextColor="rgba(255, 255, 255, 0.55)"
-                        secureTextEntry={!showConfirmPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        value={confirmPassword}
-                        onChangeText={(text) => {
-                          setConfirmPassword(text);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        returnKeyType="done"
-                        onSubmitEditing={handleSignUp}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={styles.eyeBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={18}
-                          color="rgba(255, 255, 255, 0.85)"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Error Banner */}
-                  {errorMessage ? (
-                    <View style={styles.glassErrorBox}>
-                      <Ionicons name="alert-circle" size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-                      <Text style={styles.glassErrorText}>{errorMessage}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* Submit CREATE ACCOUNT */}
-                  <TouchableOpacity
-                    style={[styles.primaryActionBtn, loading && styles.btnDisabled]}
-                    onPress={handleSignUp}
-                    disabled={loading}
-                    activeOpacity={0.85}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color="#171817" />
-                    ) : (
-                      <Text style={styles.primaryActionBtnText}>CREATE ACCOUNT</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Switch to Sign In */}
-                  <View style={styles.switchRow}>
-                    <Text style={styles.switchPromptText}>Already have an account? </Text>
-                    <TouchableOpacity
-                      onPress={() => switchAuthMode('signin')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.switchActionText}>SIGN IN</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Back to Options button */}
-                  <TouchableOpacity
-                    onPress={() => switchAuthMode('buttons')}
-                    style={styles.backToOverviewBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.backToOverviewText}>← Back to overview</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </Animated.View>
-
-            {/* Quiet Luxury Footer */}
-            <View style={styles.footerPillar}>
-              <Text style={styles.footerPillarText}>TRAVEL  //  CONNECT  //  EXPLORE</Text>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          {/* Subtle Editorial Tagline */}
+          <View style={styles.footerTagline}>
+            <Text style={styles.footerTaglineText}>MEET SOMEONE. GO SOMEWHERE.</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -716,18 +310,14 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0F1115',
     position: 'relative',
     overflow: 'hidden',
   },
 
-  /* ============================================================ */
-  /* CINEMATIC SUNSET MOUNTAINS BACKGROUND LAYER                  */
-  /* ============================================================ */
+  /* Background image layer */
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
     zIndex: 1,
   },
   backgroundImage: {
@@ -735,9 +325,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  /* ============================================================ */
-  /* EXACT INTRO VIDEO CONTAINER                                  */
-  /* ============================================================ */
+  /* Video background layer */
   videoContainer: {
     position: 'fixed',
     top: 0,
@@ -746,87 +334,75 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    zIndex: 99999,
-    backgroundColor: '#000000',
+    zIndex: 2,
+    backgroundColor: '#0F1115',
     overflow: 'hidden',
+  },
+
+  /* Sleek Skip Button */
+  skipButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: RADII.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     ...Platform.select({
       web: {
-        transition: 'opacity 700ms cubic-bezier(0.4, 0, 0.2, 1)',
-        willChange: 'opacity, transform',
-        transform: 'translateZ(0)',
-        backfaceVisibility: 'hidden',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+        cursor: 'pointer',
+        transition: 'transform 0.15s ease, background-color 0.2s ease',
       },
     }),
   },
+  skipButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
 
-  /* ============================================================ */
-  /* CONTENT CONTAINER                                            */
-  /* ============================================================ */
-  contentContainer: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+  /* Options overlay positioned in the lower area of the screen */
+  optionsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 10,
-  },
-  keyboardAvoid: {
-    flex: 1,
-    width: '100%',
-  },
-  scrollContent: {
-    flexGrow: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
     paddingHorizontal: 24,
-    width: '100%',
   },
 
-  /* ============================================================ */
-  /* SPACER LEAVING CURSIVE "May Be We" PROMINENT & UNOBSTRUCTED */
-  /* ============================================================ */
-  brandScriptSpacer: {
+  controlsCard: {
     width: '100%',
-    ...Platform.select({
-      web: {
-        minHeight: '62vh',
-      },
-      default: {
-        minHeight: 380,
-      },
-    }),
-  },
-
-  /* ============================================================ */
-  /* ANIMATED OPTIONS COMING DOWN OF THE MAYBEWE TEXT             */
-  /* ============================================================ */
-  optionsContainer: {
-    width: '100%',
-    maxWidth: 400,
+    maxWidth: 360,
     alignItems: 'center',
-    marginBottom: 24,
+    gap: 10,
   },
 
-  /* Initial Pill Buttons Surface */
-  buttonsSurface: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 14,
-  },
+  /* Sign In Button */
   pillSignInBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    height: 54,
+    height: 48,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#FFFFFF',
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 8px 28px rgba(0, 0, 0, 0.25)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.32)',
         cursor: 'pointer',
         transition: 'transform 0.15s ease, background-color 0.2s ease',
       },
@@ -834,25 +410,28 @@ const styles = StyleSheet.create({
   },
   pillSignInBtnText: {
     fontFamily: FONTS.bold,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#171817',
     letterSpacing: -0.2,
   },
+
+  /* Sign Up Button */
   pillSignUpBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    height: 54,
+    height: 48,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.70)',
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.20)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 22px rgba(0, 0, 0, 0.22)',
         cursor: 'pointer',
         transition: 'transform 0.15s ease, background-color 0.2s ease',
       },
@@ -860,20 +439,56 @@ const styles = StyleSheet.create({
   },
   pillSignUpBtnText: {
     fontFamily: FONTS.bold,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
+
+  /* Guest Demo Explore Button */
+  guestExploreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 42,
+    borderRadius: RADII.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    marginTop: 2,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s ease',
+      },
+    }),
+  },
+  guestExploreText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FAF8F3',
+    letterSpacing: 0.1,
+  },
+
+  /* Forgot Password */
   forgotBtn: {
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginTop: 2,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
   },
   forgotBtnText: {
     fontFamily: FONTS.medium,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.85)',
     ...Platform.select({
@@ -883,208 +498,16 @@ const styles = StyleSheet.create({
     }),
   },
 
-  /* ============================================================ */
-  /* FROSTED GLASS FORM CARD (Sign In / Sign Up)                  */
-  /* ============================================================ */
-  glassFormCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-    paddingHorizontal: 26,
-    paddingVertical: 28,
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow: '0 20px 48px rgba(0, 0, 0, 0.35)',
-      },
-    }),
-  },
-  formCardHeader: {
-    marginBottom: 20,
+  /* Footer Tagline */
+  footerTagline: {
+    marginTop: 8,
     alignItems: 'center',
   },
-  formCardTitle: {
-    fontFamily: FONTS.extraBold,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-    textAlign: 'center',
-    ...Platform.select({
-      web: {
-        textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
-      },
-    }),
-  },
-  formCardSubtitle: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.85)',
-    textAlign: 'center',
-  },
-
-  /* Inputs */
-  glassInputGroup: {
-    marginBottom: 14,
-  },
-  glassInputLabel: {
+  footerTaglineText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
-    marginBottom: 6,
-    letterSpacing: 0.2,
-    ...Platform.select({
-      web: {
-        textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)',
-      },
-    }),
-  },
-  glassInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
-    paddingHorizontal: 14,
-    height: 48,
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(10px)',
-      },
-    }),
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  glassTextInput: {
-    flex: 1,
-    height: '100%',
-    fontFamily: FONTS.medium,
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  eyeBtn: {
-    padding: 6,
-  },
-
-  /* Forgot Password Link in Form */
-  formForgotBtn: {
-    alignSelf: 'flex-end',
-    marginTop: -4,
-    marginBottom: 14,
-    paddingVertical: 2,
-  },
-  formForgotText: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.90)',
-    ...Platform.select({
-      web: {
-        textShadow: '0 1px 3px rgba(0, 0, 0, 0.6)',
-      },
-    }),
-  },
-
-  /* Error Banner */
-  glassErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(220, 38, 38, 0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(252, 165, 165, 0.6)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 14,
-  },
-  glassErrorText: {
-    flex: 1,
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-
-  /* Primary Action Submit Button */
-  primaryActionBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADII.full,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-    ...Platform.select({
-      web: {
-        cursor: 'pointer',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.30)',
-        transition: 'transform 0.15s ease, background-color 0.2s ease',
-      },
-    }),
-  },
-  primaryActionBtnText: {
-    fontFamily: FONTS.bold,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#171817',
-    letterSpacing: 1,
-  },
-  btnDisabled: {
-    opacity: 0.65,
-  },
-
-  /* Switch row */
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  switchPromptText: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.85)',
-  },
-  switchActionText: {
-    fontFamily: FONTS.bold,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-    textDecorationLine: 'underline',
-  },
-  backToOverviewBtn: {
-    alignItems: 'center',
-    marginTop: 14,
-    paddingVertical: 6,
-  },
-  backToOverviewText: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.75)',
-  },
-
-  /* Footer */
-  footerPillar: {
-    marginTop: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footerPillarText: {
-    fontFamily: FONTS.bold,
     fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.65)',
-    letterSpacing: 2.6,
-    textAlign: 'center',
-    ...Platform.select({
-      web: {
-        textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)',
-      },
-    }),
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.60)',
+    letterSpacing: 1.8,
   },
 });

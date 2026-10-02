@@ -403,9 +403,16 @@ export function AuthProvider({ children }) {
         await fetchSupabaseProfile(data.session.user.id);
         return { success: true, session: data.session, user: data.session.user };
       } else {
+        // Local/Demo mode fallback: sign in immediately as verified demo user
+        console.log('[Auth] Demo mode sign-in activated with DEMO_CURRENT_USER');
+        await AsyncStorage.setItem(DEMO_AUTH_KEY, 'true');
+        await AsyncStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(DEMO_CURRENT_USER));
+        setProfile(DEMO_CURRENT_USER);
+        setIsDemoMode(true);
         return {
-          success: false,
-          error: 'Supabase authentication is not configured. Real Supabase connection required.',
+          success: true,
+          profile: DEMO_CURRENT_USER,
+          user: { id: DEMO_CURRENT_USER.id, email: DEMO_CURRENT_USER.email, user_metadata: { name: DEMO_CURRENT_USER.name } },
         };
       }
     } catch (error) {

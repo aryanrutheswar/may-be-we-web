@@ -12,6 +12,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,11 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONTS, RADII, SHADOWS } from '../../lib/theme';
 import { useAuth } from '../../lib/authContext';
 import PageTransition from '../../components/PageTransition';
+import { useTransitionManager } from '../../components/TransitionManager';
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { login, signInWithGoogle, loginWithGoogle } = useAuth();
+  const { navigateWithTransition } = useTransitionManager();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +34,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [focusedField, setFocusedField] = useState(null);
 
   const handleSignIn = async () => {
     const trimmedEmail = email.trim();
@@ -53,7 +57,11 @@ export default function LoginScreen() {
       }
 
       setLoading(false);
-      router.replace('/(tabs)');
+      if (typeof navigateWithTransition === 'function') {
+        navigateWithTransition('/(tabs)', 'grand-entrance');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err) {
       console.warn('[Login] Unexpected error in handleSignIn:', err);
       setLoading(false);
@@ -112,7 +120,10 @@ export default function LoginScreen() {
             style={styles.backgroundImage}
             resizeMode="cover"
           />
-          <View style={styles.backgroundVignette} />
+          <LinearGradient
+            colors={['rgba(0, 0, 0, 0.06)', 'rgba(0, 0, 0, 0.16)', 'rgba(0, 0, 0, 0.46)']}
+            style={StyleSheet.absoluteFillObject}
+          />
         </View>
 
       <ScrollView
@@ -130,7 +141,9 @@ export default function LoginScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={() => {
-              if (router.canGoBack()) {
+              if (typeof navigateWithTransition === 'function') {
+                navigateWithTransition('/(auth)/welcome', 'page-reveal', 'backward');
+              } else if (router.canGoBack()) {
                 router.back();
               } else {
                 router.replace('/(auth)/welcome');
@@ -141,7 +154,7 @@ export default function LoginScreen() {
             accessibilityLabel="Back"
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={18} color="#171817" />
+            <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.brandBadge}>
@@ -162,21 +175,28 @@ export default function LoginScreen() {
             {/* Email Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  focusedField === 'email' && styles.inputContainerFocused,
+                ]}
+              >
                 <Ionicons
                   name="mail-outline"
                   size={18}
-                  color="#A8A49C"
+                  color="rgba(255, 255, 255, 0.80)"
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.textInput}
                   placeholder="name@traveler.io"
-                  placeholderTextColor="#A8A49C"
+                  placeholderTextColor="rgba(255, 255, 255, 0.55)"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   value={email}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
                   onChangeText={(text) => {
                     setEmail(text);
                     if (errorMessage) setErrorMessage('');
@@ -189,21 +209,28 @@ export default function LoginScreen() {
             {/* Password Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  focusedField === 'password' && styles.inputContainerFocused,
+                ]}
+              >
                 <Ionicons
                   name="lock-closed-outline"
                   size={18}
-                  color="#A8A49C"
+                  color="rgba(255, 255, 255, 0.80)"
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Your password"
-                  placeholderTextColor="#A8A49C"
+                  placeholderTextColor="rgba(255, 255, 255, 0.55)"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
                   value={password}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
                   onChangeText={(text) => {
                     setPassword(text);
                     if (errorMessage) setErrorMessage('');
@@ -222,7 +249,7 @@ export default function LoginScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={18}
-                    color="#8E8B83"
+                    color="rgba(255, 255, 255, 0.80)"
                   />
                 </TouchableOpacity>
               </View>
@@ -261,6 +288,31 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {/* Quick Demo Sign-In (Elena Rostova) */}
+            <TouchableOpacity
+              style={styles.demoSignInBtn}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await login('demo@maybewe.io', 'demo1234');
+                  setLoading(false);
+                  if (typeof navigateWithTransition === 'function') {
+                    navigateWithTransition('/(tabs)', 'grand-entrance');
+                  } else {
+                    router.replace('/(tabs)');
+                  }
+                } catch (e) {
+                  setLoading(false);
+                }
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Quick Demo Sign-In"
+            >
+              <Ionicons name="sparkles" size={14} color="#B99A5E" style={{ marginRight: 6 }} />
+              <Text style={styles.demoSignInText}>Quick Demo Sign-In (Verified Explorer)</Text>
+            </TouchableOpacity>
+
             {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -279,9 +331,9 @@ export default function LoginScreen() {
                 accessibilityLabel="Sign in with Google"
               >
                 {googleLoading ? (
-                  <ActivityIndicator size="small" color="#171817" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Ionicons name="logo-google" size={18} color="#171817" />
+                  <Ionicons name="logo-google" size={18} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
 
@@ -293,7 +345,7 @@ export default function LoginScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Apple"
               >
-                <Ionicons name="logo-apple" size={19} color="#171817" />
+                <Ionicons name="logo-apple" size={19} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -302,7 +354,13 @@ export default function LoginScreen() {
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => {
+                if (typeof navigateWithTransition === 'function') {
+                  navigateWithTransition('/(auth)/signup', 'soft-slide');
+                } else {
+                  router.push('/(auth)/signup');
+                }
+              }}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Create Account"
@@ -320,16 +378,12 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0F1115',
     position: 'relative',
   },
   backgroundImage: {
     width: '100%',
     height: '100%',
-  },
-  backgroundVignette: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -348,14 +402,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderWidth: 1,
-    borderColor: '#EAE5DC',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.38)',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.18)',
         cursor: 'pointer',
       },
       default: {},
@@ -365,14 +421,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderWidth: 1,
-    borderColor: '#E7D3B5',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(231, 211, 181, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
       },
       default: {},
     }),
@@ -381,7 +439,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    color: '#A88B52',
+    color: '#FAF8F3',
     letterSpacing: 2.2,
   },
   contentWrapper: {
@@ -402,7 +460,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     ...Platform.select({
       web: {
-        textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+        textShadow: '0 2px 10px rgba(0, 0, 0, 0.55)',
       },
     }),
   },
@@ -413,21 +471,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     ...Platform.select({
       web: {
-        textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)',
+        textShadow: '0 1px 4px rgba(0, 0, 0, 0.55)',
       },
     }),
   },
   formCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.13)',
+    borderRadius: 26,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     padding: 26,
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.25)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        boxShadow: '0 24px 50px rgba(0, 0, 0, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.38)',
       },
       default: {
         ...SHADOWS.md,
@@ -441,18 +499,39 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
     fontSize: 13,
     fontWeight: '600',
-    color: '#171817',
+    color: 'rgba(255, 255, 255, 0.95)',
     marginBottom: 8,
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)',
+      },
+    }),
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5EFEB',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDE5DC',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.30)',
     height: 50,
     paddingHorizontal: 14,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
+      },
+    }),
+  },
+  inputContainerFocused: {
+    borderColor: 'rgba(255, 255, 255, 0.75)',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.18)',
+      },
+    }),
   },
   inputIcon: {
     marginRight: 10,
@@ -462,7 +541,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontFamily: FONTS.medium,
     fontSize: 14,
-    color: '#171817',
+    color: '#FFFFFF',
     ...Platform.select({
       web: {
         outlineStyle: 'none',
@@ -480,17 +559,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotText: {
-    fontFamily: FONTS.regular,
+    fontFamily: FONTS.medium,
     fontSize: 12,
-    color: '#77756F',
+    color: 'rgba(255, 255, 255, 0.88)',
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)',
+      },
+    }),
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(220, 38, 38, 0.30)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.22)',
+    borderColor: 'rgba(252, 165, 165, 0.55)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 16,
@@ -498,20 +582,23 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: '#DC2626',
+    color: '#FFFFFF',
     flex: 1,
   },
   signInBtn: {
     backgroundColor: '#171817',
     height: 50,
-    borderRadius: 14,
+    borderRadius: RADII.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 12px rgba(23, 24, 23, 0.15)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.40)',
         cursor: 'pointer',
+        transition: 'transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease',
       },
       default: {},
     }),
@@ -526,6 +613,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
+  demoSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: RADII.full,
+    backgroundColor: 'rgba(242, 209, 132, 0.15)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(242, 209, 132, 0.50)',
+    marginBottom: 20,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        cursor: 'pointer',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
+        transition: 'background-color 0.2s ease, transform 0.15s ease, border-color 0.2s ease',
+      },
+      default: {},
+    }),
+  },
+  demoSignInText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF8F3',
+    letterSpacing: 0.1,
+  },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -535,13 +650,13 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#EDE7DE',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   dividerText: {
     fontFamily: FONTS.bold,
     fontSize: 10,
-    color: '#A09D96',
-    letterSpacing: 1.2,
+    color: 'rgba(255, 255, 255, 0.70)',
+    letterSpacing: 1.4,
   },
   socialRow: {
     flexDirection: 'row',
@@ -550,16 +665,19 @@ const styles = StyleSheet.create({
   socialBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EDE7DE',
+    borderRadius: RADII.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       web: {
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         cursor: 'pointer',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+        transition: 'background-color 0.2s ease, transform 0.15s ease, border-color 0.2s ease',
       },
       default: {},
     }),
@@ -574,12 +692,23 @@ const styles = StyleSheet.create({
   footerText: {
     fontFamily: FONTS.regular,
     fontSize: 13,
-    color: '#77756F',
+    color: 'rgba(255, 255, 255, 0.85)',
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)',
+      },
+    }),
   },
   createAccountText: {
     fontFamily: FONTS.bold,
     fontSize: 13,
     fontWeight: '700',
-    color: '#171817',
+    color: '#FFFFFF',
+    textDecorationLine: 'underline',
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)',
+      },
+    }),
   },
 });

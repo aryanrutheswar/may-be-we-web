@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADII, SHADOWS, FONTS } from '../../lib/theme';
 import { useTheme } from '../../lib/themeContext';
+import { useTransitionManager } from '../../components/TransitionManager';
 
 const TABS = [
   { name: 'index', label: 'Home', iconFocused: 'compass', iconBlur: 'compass-outline' },
@@ -26,6 +27,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const { navigateWithTransition } = useTransitionManager();
 
   if (isDesktop) {
     return (
@@ -34,7 +36,11 @@ function CustomTabBar({ state, descriptors, navigation }) {
           {/* Brand Wordmark & Tag */}
           <TouchableOpacity
             style={styles.desktopBrandCol}
-            onPress={() => navigation.navigate('index')}
+            onPress={() => {
+              if (state.index !== 0) {
+                navigateWithTransition('/(tabs)');
+              }
+            }}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="MaybeWe Home"
@@ -63,7 +69,8 @@ function CustomTabBar({ state, descriptors, navigation }) {
                   canPreventDefault: true,
                 });
                 if (!isFocused && !event.defaultPrevented) {
-                  navigation.navigate(route.name);
+                  const targetPath = route.name === 'index' ? '/(tabs)' : `/(tabs)/${route.name}`;
+                  navigateWithTransition(targetPath);
                 }
               };
 
@@ -128,7 +135,8 @@ function CustomTabBar({ state, descriptors, navigation }) {
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              const targetPath = route.name === 'index' ? '/(tabs)' : `/(tabs)/${route.name}`;
+              navigateWithTransition(targetPath);
             }
           };
 
