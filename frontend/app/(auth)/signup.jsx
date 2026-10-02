@@ -20,6 +20,7 @@ import PrimaryButton from '../../components/ui/PrimaryButton';
 import InputField from '../../components/ui/InputField';
 import FilterChip from '../../components/ui/FilterChip';
 import { useAuth } from '../../lib/authContext';
+import PageTransition from '../../components/PageTransition';
 
 import { INDIAN_LANGUAGES } from '../../lib/indiaData';
 
@@ -215,7 +216,7 @@ export default function SignupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.innerWrapper}>
+      <PageTransition variant="signup" style={styles.innerWrapper}>
         {/* Top Header & Animated Progress Bar */}
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity
@@ -440,7 +441,7 @@ export default function SignupScreen() {
           style={{ marginTop: 24 }}
         />
       </ScrollView>
-      </View>
+      </PageTransition>
     </KeyboardAvoidingView>
   );
 }

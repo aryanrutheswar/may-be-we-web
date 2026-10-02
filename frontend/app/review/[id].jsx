@@ -19,6 +19,7 @@ import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/the
 import { useAuth } from '../../lib/authContext';
 import { useTheme } from '../../lib/themeContext';
 import { submitReview } from '../../lib/reviews';
+import PageTransition from '../../components/PageTransition';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -150,7 +151,7 @@ export default function ReviewScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: '#F7F5F0' }]}>
-      <View style={[styles.container, { paddingTop: Math.max(insets.top, 14) + 6, paddingBottom: insets.bottom + 20 }]}>
+      <PageTransition variant="review" style={[styles.container, { paddingTop: Math.max(insets.top, 14) + 6, paddingBottom: insets.bottom + 20 }]}>
         {/* Top Bar with Close button */}
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -298,7 +299,7 @@ export default function ReviewScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      </View>
+      </PageTransition>
     </View>
   );
 }

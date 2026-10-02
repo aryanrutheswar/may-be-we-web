@@ -27,6 +27,7 @@ import HangoutDetailModal from '../../components/HangoutDetailModal.jsx';
 import AddToTripModal from '../../components/AddToTripModal.jsx';
 import PlaceDetailModal from '../../components/PlaceDetailModal.jsx';
 import ChatInboxView from '../../components/ChatInboxView.jsx';
+import PageTransition from '../../components/PageTransition';
 
 export default function MatchesScreen() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export default function MatchesScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={styles.container}>
+      <PageTransition variant="matches" style={styles.container}>
         <GradientHeader
           title="Connections & Chat"
           subtitle="Shared journeys & active chats"
@@ -298,7 +299,7 @@ export default function MatchesScreen() {
             )}
           </ScrollView>
         )}
-      </View>
+      </PageTransition>
 
       {/* Create Hangout Modal */}
       <CreateHangoutModal

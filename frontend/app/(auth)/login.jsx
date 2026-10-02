@@ -10,6 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONTS, RADII, SHADOWS } from '../../lib/theme';
 import { useAuth } from '../../lib/authContext';
+import PageTransition from '../../components/PageTransition';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -100,7 +102,18 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
-      <StatusBar style="dark" />
+      <PageTransition variant="login" style={{ flex: 1 }}>
+        <StatusBar style="light" />
+
+        {/* Cinematic Sunset Cloudscape Background Layer */}
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <Image
+            source={require('../../assets/images/maybewe_clouds_clean.jpg')}
+            style={styles.backgroundImage}
+            resizeMode="cover"
+          />
+          <View style={styles.backgroundVignette} />
+        </View>
 
       <ScrollView
         contentContainerStyle={[
@@ -299,6 +312,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
+      </PageTransition>
     </KeyboardAvoidingView>
   );
 }
@@ -306,7 +320,16 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#000000',
+    position: 'relative',
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+  },
+  backgroundVignette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -325,7 +348,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderWidth: 1,
     borderColor: '#EAE5DC',
     alignItems: 'center',
@@ -342,7 +365,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 19,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderWidth: 1,
     borderColor: '#E7D3B5',
     alignItems: 'center',
@@ -374,27 +397,41 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 28,
     fontWeight: '800',
-    color: '#171817',
+    color: '#FFFFFF',
     letterSpacing: -0.6,
     marginBottom: 6,
+    ...Platform.select({
+      web: {
+        textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+      },
+    }),
   },
   subtitle: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: '#77756F',
+    color: 'rgba(255, 255, 255, 0.90)',
     lineHeight: 20,
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)',
+      },
+    }),
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#EDE7DE',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
     padding: 26,
     ...Platform.select({
       web: {
-        boxShadow: '0 8px 30px rgba(23, 24, 23, 0.04)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.25)',
       },
-      default: {},
+      default: {
+        ...SHADOWS.md,
+      },
     }),
   },
   inputGroup: {

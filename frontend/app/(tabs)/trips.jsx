@@ -30,6 +30,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import CalendarPickerModal from '../../components/ui/CalendarPickerModal';
 import { getDestinationImage, resolveDestinationImageUri } from '../../lib/destinationImageResolver';
 import TripTimelineView from '../../components/TripTimelineView';
+import PageTransition from '../../components/PageTransition';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const TRIPS_STORAGE_KEY = '@solo_traveler_stored_trips';
@@ -344,7 +345,7 @@ export default function TripsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={styles.container}>
+      <PageTransition variant="trips" style={styles.container}>
         {/* Top Header matching exact specification */}
         <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 12, borderBottomColor: '#D7D2C8' }]}>
           <View style={styles.headerTopRow}>
@@ -908,7 +909,7 @@ export default function TripsScreen() {
         activeField={calendarActiveField}
         title={calendarTarget === 'create' ? 'Select Trip Dates' : 'Edit Itinerary Dates'}
       />
-      </View>
+      </PageTransition>
     </View>
   );
 }

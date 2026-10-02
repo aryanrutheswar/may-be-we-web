@@ -32,6 +32,7 @@ import PlaceDetailModal from '../../components/PlaceDetailModal.jsx';
 import AddToTripModal from '../../components/AddToTripModal.jsx';
 import NotificationCenterModal from '../../components/NotificationCenterModal.jsx';
 import PrivacySettingsModal from '../../components/PrivacySettingsModal.jsx';
+import PageTransition from '../../components/PageTransition';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -323,7 +324,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={styles.container}>
+      <PageTransition variant="profile" style={styles.container}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollBody,
@@ -1155,7 +1156,7 @@ export default function ProfileScreen() {
         onClose={() => setPrivacyModalVisible(false)}
         userId={profile?.id || 'user-demo-priya'}
       />
-      </View>
+      </PageTransition>
     </View>
   );
 }

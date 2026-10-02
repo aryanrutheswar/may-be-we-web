@@ -19,6 +19,7 @@ import { COLORS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import TrustBadge from '../../components/ui/TrustBadge';
 import { useAuth } from '../../lib/authContext';
+import PageTransition from '../../components/PageTransition';
 
 // Verification State Machine:
 // 'NOT_STARTED' | 'CAPTURED' | 'IN_PROGRESS' | 'VERIFIED' | 'FAILED' | 'PENDING'
@@ -333,7 +334,8 @@ export default function VerificationScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <PageTransition variant="verification" style={{ flex: 1, alignItems: 'center' }}>
+        <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Top Bar with Back Button */}
           <View style={styles.topBar}>
@@ -563,6 +565,7 @@ export default function VerificationScreen() {
           )}
         </ScrollView>
       </View>
+      </PageTransition>
     </View>
   );
 }

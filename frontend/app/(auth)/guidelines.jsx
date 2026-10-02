@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../lib/authContext';
+import PageTransition from '../../components/PageTransition';
 
 const GUIDELINES = [
   {
@@ -60,15 +61,16 @@ export default function GuidelinesScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
-        {/* Top Bar with Back Button */}
+      <PageTransition variant="guidelines">
+        <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
+        {/* Top Bar with Back Button & Explore Shortcut */}
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={() => {
               if (router.canGoBack()) {
                 router.back();
               } else {
-                router.replace('/(tabs)/profile');
+                router.replace('/(tabs)?preview=true');
               }
             }}
             style={styles.backButton}
@@ -77,6 +79,16 @@ export default function GuidelinesScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={PALETTE.nearBlack} />
             <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)?preview=true')}
+            style={styles.skipButton}
+            activeOpacity={0.7}
+            accessibilityLabel="Explore app"
+          >
+            <Text style={styles.skipButtonText}>Explore App</Text>
+            <Ionicons name="chevron-forward" size={16} color={PALETTE.nearBlack} />
           </TouchableOpacity>
         </View>
 
@@ -115,6 +127,7 @@ export default function GuidelinesScreen() {
           />
         </View>
       </View>
+      </PageTransition>
     </View>
   );
 }
@@ -133,6 +146,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   backButton: {
@@ -150,6 +164,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: PALETTE.nearBlack,
     marginLeft: 6,
+  },
+  skipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.borderGrey,
+  },
+  skipButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: PALETTE.nearBlack,
+    marginRight: 4,
   },
   header: {
     marginBottom: 20,

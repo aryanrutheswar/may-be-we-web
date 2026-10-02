@@ -32,6 +32,7 @@ import SkeletonCard from '../../components/ui/SkeletonCard';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import GlassCard from '../../components/ui/GlassCard';
 import IndiaTravelMap from '../../components/IndiaTravelMap';
+import PageTransition from '../../components/PageTransition';
 import NotificationCenterModal from '../../components/NotificationCenterModal.jsx';
 import DestinationDetailModal from '../../components/DestinationDetailModal.jsx';
 import { getUnreadNotificationsCount } from '../../lib/notifications.js';
@@ -837,7 +838,7 @@ export default function HomeDashboardScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.container}>
+      <PageTransition variant="home" style={styles.container}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollBody,
@@ -1788,7 +1789,7 @@ export default function HomeDashboardScreen() {
             router.push('/(tabs)/discovery');
           }}
         />
-      </View>
+      </PageTransition>
     </View>
   );
 }

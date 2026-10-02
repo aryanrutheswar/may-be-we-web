@@ -31,6 +31,7 @@ import StaggeredCardWrapper from '../../components/StaggeredCardWrapper';
 import PlaceDiscoveryView from '../../components/PlaceDiscoveryView';
 import PlaceDetailModal from '../../components/PlaceDetailModal';
 import AddToTripModal from '../../components/AddToTripModal';
+import PageTransition from '../../components/PageTransition';
 
 const FILTER_STYLES = ['All', 'Culture', 'Food', 'Adventure', 'Photography', 'Nature', 'Wellness', 'Backpacking', 'Luxury', 'Beach', 'Nightlife'];
 const GENDERS = ['All', 'Female', 'Male', 'Non-binary'];
@@ -203,7 +204,7 @@ export default function DiscoveryScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={styles.container}>
+      <PageTransition variant="discovery" style={styles.container}>
         {/* Toast Notification */}
         {toastMessage && (
           <View style={[styles.toastBanner, { top: insets.top + 16, backgroundColor: colors.cardBg, borderColor: colors.border }]}>
@@ -535,7 +536,7 @@ export default function DiscoveryScreen() {
         onClose={() => setAddToTripTargetPlace(null)}
         onAdded={() => showToast(`Added to your trip! ✨`)}
       />
-    </View>
+      </PageTransition>
     </View>
   );
 }

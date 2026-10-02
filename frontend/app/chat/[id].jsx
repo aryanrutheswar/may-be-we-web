@@ -36,6 +36,7 @@ import HangoutDetailModal from '../../components/HangoutDetailModal';
 import LiveLocationCard from '../../components/LiveLocationCard';
 import LiveLocationConsentModal from '../../components/LiveLocationConsentModal';
 import LiveLocationMapModal from '../../components/LiveLocationMapModal';
+import PageTransition from '../../components/PageTransition';
 import { getActiveLiveLocationSession, formatRemainingTime } from '../../lib/liveLocation.js';
 
 import { useAuth } from '../../lib/authContext';
@@ -570,6 +571,7 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: '#FAF8F3' }]}>
+      <PageTransition variant="matches">
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerLeft}>
@@ -857,6 +859,7 @@ export default function ChatScreen() {
         reportedUserId="user-demo-arjun"
         reportedUserName={displayName}
       />
+      </PageTransition>
     </View>
   );
 }

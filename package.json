@@ -31,11 +31,11 @@
     "cross-env": "^10.1.0"
   },
   "scripts": {
-    "start": "cross-env EXPO_NO_TELEMETRY=1 expo start",
-    "build": "cross-env EXPO_NO_TELEMETRY=1 expo export --platform web",
-    "android": "cross-env EXPO_NO_TELEMETRY=1 expo start --android",
-    "ios": "cross-env EXPO_NO_TELEMETRY=1 expo start --ios",
-    "web": "cross-env EXPO_NO_TELEMETRY=1 expo start --web",
+    "start": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start",
+    "build": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo export --platform web",
+    "android": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --android",
+    "ios": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --ios",
+    "web": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --web",
     "serve": "serve dist -l 3000 --single"
   },
   "private": true,

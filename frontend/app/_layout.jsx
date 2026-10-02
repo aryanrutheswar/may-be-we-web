@@ -52,13 +52,13 @@ function AuthRouteGuard({ children }) {
     if (isAuthenticated) {
       // User is logged in
       if (!isVerified) {
-        // Unverified user MUST complete selfie verification before entering any authenticated area
-        if (!inAuthGroup || (currentSubRoute !== 'verification' && currentSubRoute !== 'guidelines')) {
+        // Unverified user MUST complete selfie verification before entering any authenticated area (except welcome which plays the intro video first)
+        if (!inAuthGroup || (currentSubRoute !== 'verification' && currentSubRoute !== 'guidelines' && currentSubRoute !== 'welcome')) {
           router.replace('/(auth)/verification');
         }
       } else {
-        // Verified user: redirect directly from auth screens or theme-selection to tabs
-        if (inAuthGroup && (currentSubRoute === 'welcome' || currentSubRoute === 'login' || currentSubRoute === 'signup' || currentSubRoute === 'forgot-password' || currentSubRoute === 'theme-selection')) {
+        // Verified user: redirect directly from auth screens or theme-selection to tabs (except welcome which plays the intro video first)
+        if (inAuthGroup && (currentSubRoute === 'login' || currentSubRoute === 'signup' || currentSubRoute === 'forgot-password' || currentSubRoute === 'theme-selection')) {
           router.replace('/(tabs)');
         }
       }
@@ -205,7 +205,197 @@ export default function RootLayout() {
               margin: 0 !important;
               box-shadow: none !important;
               border-radius: 0 !important;
+          /* ============================================================ */
+          /* LUXURY PAGE TRANSITION PRESETS (Cubic-Bezier Springs)         */
+          /* ============================================================ */
+          @keyframes pageLoginEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(38px) scale(0.965);
+              filter: blur(10px);
             }
+            65% {
+              filter: blur(0px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+              filter: blur(0px);
+            }
+          }
+          .page-trans-login {
+            animation: pageLoginEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity, filter;
+          }
+
+          @keyframes pageGuidelinesEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(44px) scale(0.985);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          .page-trans-guidelines {
+            animation: pageGuidelinesEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageSignupEntrance {
+            0% {
+              opacity: 0;
+              transform: translateX(48px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .page-trans-signup {
+            animation: pageSignupEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageVerificationEntrance {
+            0% {
+              opacity: 0;
+              transform: scale(0.92);
+              filter: brightness(1.2);
+            }
+            100% {
+              opacity: 1;
+              transform: scale(1);
+              filter: brightness(1);
+            }
+          }
+          .page-trans-verification {
+            animation: pageVerificationEntrance 600ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity, filter;
+          }
+
+          @keyframes pageHomeEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(28px) scale(0.988);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          .page-trans-home {
+            animation: pageHomeEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageDiscoveryEntrance {
+            0% {
+              opacity: 0;
+              transform: translate(36px, 24px) rotate(-1.5deg);
+            }
+            100% {
+              opacity: 1;
+              transform: translate(0, 0) rotate(0deg);
+            }
+          }
+          .page-trans-discovery {
+            animation: pageDiscoveryEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageTripsEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(-32px);
+            }
+            70% {
+              transform: translateY(4px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          .page-trans-trips {
+            animation: pageTripsEntrance 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageMatchesEntrance {
+            0% {
+              opacity: 0;
+              transform: translateX(42px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .page-trans-matches {
+            animation: pageMatchesEntrance 550ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageProfileEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(32px) scale(0.98);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          .page-trans-profile {
+            animation: pageProfileEntrance 580ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageSettingsEntrance {
+            0% {
+              opacity: 0;
+              transform: translateX(50px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .page-trans-settings {
+            animation: pageSettingsEntrance 520ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageReviewEntrance {
+            0% {
+              opacity: 0;
+              transform: translateY(55px) scale(0.95);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          .page-trans-review {
+            animation: pageReviewEntrance 550ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          @keyframes pageShowcaseEntrance {
+            0% {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          .page-trans-showcase {
+            animation: pageShowcaseEntrance 500ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
           }
         `;
         document.head.appendChild(style);
@@ -220,20 +410,20 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthRouteGuard>
               <ThemedAppContainer>
-                <TestNavigatorModal />
                 <Stack
                   screenOptions={{
                     headerShown: false,
-                    animation: 'slide_from_right',
+                    animation: 'fade',
                   }}
                 >
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
+                  <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
                   <Stack.Screen
                     name="chat/[id]"
                     options={{
                       headerShown: false,
                       presentation: 'card',
+                      animation: 'slide_from_right',
                     }}
                   />
                   <Stack.Screen
@@ -241,6 +431,7 @@ export default function RootLayout() {
                     options={{
                       headerShown: false,
                       presentation: 'modal',
+                      animation: 'slide_from_bottom',
                     }}
                   />
                   <Stack.Screen
@@ -248,23 +439,28 @@ export default function RootLayout() {
                     options={{
                       headerShown: false,
                       presentation: 'card',
+                      animation: 'slide_from_right',
                     }}
                   />
                   <Stack.Screen
                     name="showcase"
                     options={{
                       headerShown: false,
+                      animation: 'fade',
                     }}
                   />
                   <Stack.Screen
                     name="+not-found"
                     options={{
                       headerShown: false,
+                      animation: 'fade',
                     }}
                   />
                 </Stack>
               </ThemedAppContainer>
             </AuthRouteGuard>
+            {/* Always visible Floating Test Navigator */}
+            <TestNavigatorModal />
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>

@@ -19,6 +19,7 @@ import { COLORS, GRADIENTS, RADIUS, SPACING, SHADOWS, PALETTE } from '../lib/the
 import { INDIA_PHONE_CODE, INDIA_CURRENCY_SYMBOL, INDIA_LOCALE } from '../lib/indiaData';
 
 import GlassCard from '../components/ui/GlassCard';
+import PageTransition from '../components/PageTransition';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#F7F5F0' }]}>
+      <PageTransition variant="settings">
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
         <TouchableOpacity
@@ -202,6 +204,7 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+      </PageTransition>
     </View>
   );
 }

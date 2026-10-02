@@ -57,7 +57,7 @@ export const ALL_SCREENS = [
     id: 'home',
     title: '🏠 Home Dashboard',
     description: 'Dynamic time theme & hero cards',
-    route: '/',
+    route: '/(tabs)',
     category: 'Main App',
   },
   {
@@ -131,7 +131,12 @@ export const ALL_SCREENS = [
 export default function TestNavigatorModal() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
+  let pathname = '';
+  try {
+    pathname = usePathname() || '';
+  } catch (e) {
+    pathname = '';
+  }
 
   const handleNavigate = (route) => {
     setIsOpen(false);
@@ -143,15 +148,17 @@ export default function TestNavigatorModal() {
 
   return (
     <>
-      {/* Floating Pill Trigger */}
+      {/* Floating Test Navigator Pill Trigger */}
       <View style={styles.floatingTriggerContainer} pointerEvents="box-none">
         <TouchableOpacity
           style={styles.floatingPill}
           onPress={() => setIsOpen(true)}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Open Test Navigator"
         >
           <View style={styles.pulsingDot} />
-          <Ionicons name="apps" size={14} color={COLORS.lavender} />
+          <Ionicons name="compass" size={16} color="#E7D3B5" />
           <Text style={styles.floatingPillText}>Test Navigator</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countBadgeText}>{ALL_SCREENS.length}</Text>
@@ -171,12 +178,14 @@ export default function TestNavigatorModal() {
             {/* Header */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>MAYBEWE</Text>
+                <Text style={styles.modalTitle}>MAYBEWE TEST SUITE</Text>
                 <Text style={styles.modalSubtitle}>Select any screen to test instantly</Text>
               </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setIsOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close test navigator"
               >
                 <Ionicons name="close" size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
@@ -189,7 +198,7 @@ export default function TestNavigatorModal() {
               activeOpacity={0.85}
             >
               <View style={styles.heroMergedIcon}>
-                <Ionicons name="layers" size={22} color={COLORS.primary} />
+                <Ionicons name="layers" size={22} color="#171817" />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -199,10 +208,10 @@ export default function TestNavigatorModal() {
                   </View>
                 </View>
                 <Text style={styles.heroMergedDesc}>
-                  Test all 12 screens in a single interactive view with quick switching
+                  Test all screens in a single interactive preview with instant switcher
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.lavender} />
+              <Ionicons name="chevron-forward" size={18} color="#B99A5E" />
             </TouchableOpacity>
 
             {/* Screens List grouped by Category */}
@@ -275,55 +284,66 @@ export default function TestNavigatorModal() {
 
 const styles = StyleSheet.create({
   floatingTriggerContainer: {
-    position: 'absolute',
-    bottom: Platform.OS === 'web' ? 88 : 102,
-    right: 16,
-    zIndex: 999999,
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    bottom: Platform.OS === 'web' ? 84 : 96,
+    right: 18,
+    zIndex: 9999999,
   },
   floatingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    backgroundColor: '#171817', // Deep Obsidian
     borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: '#E7D3B5', // Champagne Gold border
+    pointerEvents: 'auto',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.40)',
+        transition: 'transform 0.15s ease, background-color 0.2s ease',
+        userSelect: 'none',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        elevation: 16,
+      },
+    }),
   },
   pulsingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.success,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981', // Emerald green
   },
   floatingPillText: {
-    color: '#0F172A',
-    fontSize: 12,
+    color: '#FAF8F3', // Soft pearl white
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   countBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 8,
+    backgroundColor: 'rgba(231, 211, 181, 0.25)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(231, 211, 181, 0.50)',
   },
   countBadgeText: {
-    color: '#0F172A',
-    fontSize: 10,
-    fontWeight: '700',
+    color: '#E7D3B5',
+    fontSize: 11,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.60)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.md,
