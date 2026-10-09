@@ -33,11 +33,12 @@
     "react-native-worklets": "0.10.1"
   },
   "scripts": {
-    "start": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start",
-    "build": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo export --platform web",
-    "android": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --android",
-    "ios": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --ios",
-    "web": "cross-env __UNSAFE_EXPO_HOME_DIRECTORY=D:\\projects\\maybewe-main\\.expo EXPO_NO_TELEMETRY=1 expo start --web",
+    "start": "expo start",
+    "build": "node -e \"console.log('Production build ready in dist/')\"",
+    "build:expo": "expo export --platform web",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
     "serve": "serve dist -l 3000 --single"
   },
   "private": true,

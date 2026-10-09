@@ -5,9 +5,6 @@ node_modules/
 
 # Expo
 .expo/
-dist/
-!dist/index.html
-!dist/_redirects
 web-build/
 expo-env.d.ts
 
