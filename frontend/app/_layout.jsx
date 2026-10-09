@@ -17,6 +17,8 @@ import { ThemeProvider, useTheme } from '../lib/themeContext';
 import { COLORS, FONTS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
 import TransitionManager from '../components/TransitionManager';
+import { initLenis, destroyLenis } from '../lib/lenis';
+import LenisTelemetryHUD from '../components/LenisTelemetryHUD';
 
 function AuthRouteGuard({ children }) {
   const { session, user, profile, isLoading, isPasswordRecovery } = useAuth();
@@ -62,15 +64,15 @@ function AuthRouteGuard({ children }) {
       currentSubRoute === 'forgot-password' ||
       currentSubRoute === 'reset-password';
 
-    // 1. If user is on ANY public auth screen (welcome, login, signup, forgot-password, reset-password),
+    // 1. If user is on index or ANY public auth screen (welcome, login, signup, forgot-password, reset-password),
     // NEVER redirect them away. Allow free navigation!
-    if (inAuthGroup && isPublicAuthScreen) {
+    if (firstSegment === '' || firstSegment === 'index' || (inAuthGroup && isPublicAuthScreen)) {
       return;
     }
 
-    // 2. When opening the site root (empty route or /), unverified/unauthenticated visitors must land on welcome
+    // 2. Unverified or unauthenticated visitors trying to access protected areas must land on welcome
     if (!inAuthGroup && (!isAuthenticated || !isVerified)) {
-      console.log('[AuthGuard] Entry route -> Redirecting to /(auth)/welcome');
+      console.log('[AuthGuard] Protected area access -> Redirecting to /(auth)/welcome');
       router.replace('/(auth)/welcome');
       return;
     }
@@ -112,6 +114,16 @@ export default function RootLayout() {
     Manrope_700Bold,
     Manrope_800ExtraBold,
   });
+  // Lenis smooth scrolling lifecycle (Web only)
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    initLenis();
+
+    return () => {
+      destroyLenis();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -145,6 +157,111 @@ export default function RootLayout() {
           }
           * {
             box-sizing: border-box;
+          }
+
+          /* ============================================================ */
+          /* LENIS SMOOTH SCROLLING STYLES                                */
+          /* ============================================================ */
+          html.lenis,
+          html.lenis body {
+            height: auto !important;
+            min-height: 100% !important;
+          }
+          html.lenis body {
+            overflow-y: visible !important;
+          }
+          .lenis:not(.lenis-autoToggle).lenis-stopped {
+            overflow: clip !important;
+          }
+          .lenis [data-lenis-prevent],
+          .lenis [data-lenis-prevent-wheel],
+          .lenis [data-lenis-prevent-touch],
+          .lenis [data-lenis-prevent-vertical],
+          .lenis [data-lenis-prevent-horizontal] {
+            overscroll-behavior: contain !important;
+          }
+          .lenis.lenis-smooth iframe {
+            pointer-events: none !important;
+          }
+          .lenis.lenis-autoToggle {
+            transition-property: overflow;
+            transition-duration: 1ms;
+            transition-behavior: allow-discrete;
+          }
+
+          /* ============================================================ */
+          /* DARKROOM LENIS DESIGN SYSTEM & EDITORIAL MOTION              */
+          /* ============================================================ */
+          .lenis-display-hero {
+            font-family: 'Manrope', -apple-system, sans-serif !important;
+            font-size: clamp(2.8rem, 8vw, 7.5rem) !important;
+            font-weight: 800 !important;
+            line-height: 0.94 !important;
+            letter-spacing: -0.04em !important;
+            text-transform: uppercase !important;
+          }
+          .lenis-display-sub {
+            font-family: 'Manrope', -apple-system, sans-serif !important;
+            font-size: clamp(1rem, 2vw, 1.4rem) !important;
+            font-weight: 500 !important;
+            line-height: 1.5 !important;
+            letter-spacing: -0.01em !important;
+          }
+          .lenis-mono-badge {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.16em !important;
+            text-transform: uppercase !important;
+          }
+          @keyframes lenisMarqueeTrack {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+          }
+          .lenis-marquee {
+            overflow: hidden !important;
+            white-space: nowrap !important;
+            display: flex !important;
+            user-select: none !important;
+            border-top: 1px solid rgba(231, 211, 181, 0.16) !important;
+            border-bottom: 1px solid rgba(231, 211, 181, 0.16) !important;
+          }
+          .lenis-marquee-inner {
+            display: flex !important;
+            width: max-content !important;
+            animation: lenisMarqueeTrack 34s linear infinite !important;
+          }
+          .lenis-marquee-inner:hover {
+            animation-play-state: paused !important;
+          }
+          .lenis-scroll-reveal {
+            opacity: 0 !important;
+            transform: translateY(32px) !important;
+            transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform !important;
+          }
+          .lenis-scroll-reveal.is-inview {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+          }
+          .lenis-delay-1 { transition-delay: 80ms !important; }
+          .lenis-delay-2 { transition-delay: 160ms !important; }
+          .lenis-delay-3 { transition-delay: 240ms !important; }
+          .lenis-editorial-card {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease !important;
+          }
+          .lenis-editorial-card:hover {
+            transform: translateY(-6px) scale(1.01) !important;
+            box-shadow: 0 20px 36px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(231, 211, 181, 0.35) !important;
+          }
+          @keyframes mwBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .lenis-marquee-inner { animation: none !important; }
+            .lenis-scroll-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+            .lenis-editorial-card { transform: none !important; transition: none !important; }
           }
 
           /* Remove browser default blue outline / focus ring on inputs, textareas, and buttons */
@@ -711,6 +828,7 @@ export default function RootLayout() {
                       animation: 'fade',
                     }}
                   >
+                    <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
                     <Stack.Screen
@@ -754,6 +872,8 @@ export default function RootLayout() {
                   </Stack>
                   {/* Always visible Floating Test Navigator */}
                   <TestNavigatorModal />
+                  {/* Floating Lenis Telemetry HUD (Web only) */}
+                  <LenisTelemetryHUD />
                 </TransitionManager>
               </ThemedAppContainer>
             </AuthRouteGuard>

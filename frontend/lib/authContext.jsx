@@ -27,6 +27,7 @@ const AuthContext = createContext({
   submitVerification: async () => { },
   setThemePreference: async () => { },
   agreeToGuidelines: async () => { },
+  enterGuestMode: async () => { },
 });
 
 const DEMO_AUTH_KEY = '@solo_traveler_demo_auth';
@@ -757,6 +758,24 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Guest / Demo explorer handler: signs in with demo profile so visitor can explore tabs
+  const enterGuestMode = async () => {
+    setIsLoading(true);
+    try {
+      await AsyncStorage.setItem(DEMO_AUTH_KEY, 'true');
+      await AsyncStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(DEMO_CURRENT_USER));
+      await AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(DEMO_CURRENT_USER));
+      setProfile(DEMO_CURRENT_USER);
+      setIsDemoMode(true);
+      return { success: true, profile: DEMO_CURRENT_USER };
+    } catch (e) {
+      console.warn('enterGuestMode error:', e);
+      return { success: false, error: e.message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Logout handler
   const logout = async () => {
     setIsLoading(true);
@@ -1343,6 +1362,7 @@ export function AuthProvider({ children }) {
         setVerificationStatus,
         setThemePreference,
         agreeToGuidelines,
+        enterGuestMode,
       }}
     >
       {children}

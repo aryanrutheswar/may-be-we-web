@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useRouter, usePathname, useSegments } from 'expo-router';
+import { stopLenis, startLenis, scrollTo as lenisScrollTo } from '../lib/lenis';
 
 // ============================================================================
 // TRANSITION CONTEXT & HOOK
@@ -176,6 +177,7 @@ export default function TransitionManager({ children }) {
       setTransitionState('idle');
       setCurrentVariant('none');
       isProgrammaticNavRef.current = false;
+      startLenis();
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         document.body.style.overflow = '';
         const rootEl = document.getElementById('root');
@@ -184,6 +186,7 @@ export default function TransitionManager({ children }) {
     }, 750);
 
     // Lock body scroll temporarily to prevent jitter
+    stopLenis();
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.body.style.overflow = 'hidden';
       const rootEl = document.getElementById('root');
@@ -208,6 +211,9 @@ export default function TransitionManager({ children }) {
         console.warn('[TransitionManager] Navigation execution warning:', err);
       }
 
+      // Reset scroll position to top while hidden under the transition veil
+      lenisScrollTo(0, { immediate: true });
+
       // Phase 2: Reveal phase -> curtain moves away to reveal new page
       setTransitionState('revealing');
 
@@ -218,6 +224,7 @@ export default function TransitionManager({ children }) {
         setTransitionState('idle');
         setCurrentVariant('none');
         isProgrammaticNavRef.current = false;
+        startLenis();
 
         // Restore scroll and trigger staggered page content reveal
         if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -302,6 +309,9 @@ export default function TransitionManager({ children }) {
     setCurrentVariant(variant);
     setDirection(navDir);
 
+    stopLenis();
+    lenisScrollTo(0, { immediate: true });
+
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.body.style.overflow = 'hidden';
       const rootEl = document.getElementById('root');
@@ -313,6 +323,7 @@ export default function TransitionManager({ children }) {
       setIsTransitioning(false);
       setTransitionState('idle');
       setCurrentVariant('none');
+      startLenis();
 
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         document.body.style.overflow = '';

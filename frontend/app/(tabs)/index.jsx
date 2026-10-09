@@ -917,6 +917,26 @@ export default function HomeDashboardScreen() {
           </View>
 
           {/* ============================================================ */}
+          {/* LENIS EDITORIAL DRIFTING MARQUEE (WEB ONLY)                  */}
+          {/* ============================================================ */}
+          {Platform.OS === 'web' && (
+            <div className="lenis-marquee" style={{ margin: '14px 0 20px 0', borderTop: '1px solid rgba(185, 154, 94, 0.2)', borderBottom: '1px solid rgba(185, 154, 94, 0.2)', padding: '10px 0' }}>
+              <div className="lenis-marquee-inner">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '28px', paddingRight: '28px' }}>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#B99A5E' }}>✦ CURATED EXPEDITIONS</span>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#171817' }}>✦ LENIS SMOOTH DRIFT</span>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#B99A5E' }}>✦ CHERRY BLOSSOM TRAILS</span>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#171817' }}>✦ SWAN LAKE SUNSETS</span>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#B99A5E' }}>✦ MOONLIGHT REFLECTIONS</span>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#171817' }}>✦ VINTAGE VOYAGES</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
           {/* 2. EDITORIAL PROMPT ("Where will you go next?") & LUXURY SEARCH */}
           {/* ============================================================ */}
           <View style={styles.promptHeader}>

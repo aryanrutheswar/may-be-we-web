@@ -14,14 +14,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS, RADII } from '../../lib/theme';
 import { useTransitionManager } from '../../components/TransitionManager';
+import { useAuth } from '../../lib/authContext';
+import LenisEditorialExperience from '../../components/LenisEditorialExperience';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { navigateWithTransition } = useTransitionManager();
+  const { enterGuestMode } = useAuth();
 
   // State: whether the intro video has finished playing once
   const [introFinished, setIntroFinished] = useState(false);
+  // Options visibility: reveals swiftly so user does not wait 10 seconds to interact
+  const [optionsVisible, setOptionsVisible] = useState(false);
   const videoRef = useRef(null);
 
   // Set document title on Web
@@ -31,22 +36,33 @@ export default function WelcomeScreen() {
     }
   }, []);
 
-  // Completion handler: video stops on final frame as background, options reveal
+  // Swift entrance: gracefully reveal options after a brief 700ms cinematic beat
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setOptionsVisible(true);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, []);
+
+
+
+  // Completion handler: video stops on final frame as background
   const finishIntro = useCallback(() => {
     setIntroFinished((prev) => {
       if (prev) return prev;
-      console.log('[WelcomeScreen] Intro video completed. Freezing background and revealing Sign In / Sign Up options.');
+      console.log('[WelcomeScreen] Intro video completed. Freezing background.');
       const video = videoRef.current;
       if (video) {
         try {
           video.pause();
           if (video.duration && Number.isFinite(video.duration)) {
-            video.currentTime = video.duration;
+            video.currentTime = Math.max(0, video.duration - 0.05);
           }
         } catch (e) {}
       }
       return true;
     });
+    setOptionsVisible(true);
   }, []);
 
   // Safe navigation helper with transition
@@ -58,11 +74,24 @@ export default function WelcomeScreen() {
     }
   };
 
+  // Instant demo exploration handler
+  const handleGuestExplore = async () => {
+    try {
+      if (typeof enterGuestMode === 'function') {
+        await enterGuestMode();
+      }
+    } catch (e) {
+      console.warn('[WelcomeScreen] Guest explore error:', e);
+    }
+    handleNavigate('/(tabs)');
+  };
+
   // Video event listeners & single-play background management
   useEffect(() => {
     if (Platform.OS !== 'web') {
       // Native fallback: reveal options immediately
       setIntroFinished(true);
+      setOptionsVisible(true);
       return;
     }
 
@@ -85,11 +114,11 @@ export default function WelcomeScreen() {
     };
 
     const handleTimeUpdate = () => {
-      // Only finish when the video has actually played to the end (duration > 5s and within 0.1s of end)
+      // Finish when the video has actually played to the end
       if (
         video.duration &&
         Number.isFinite(video.duration) &&
-        video.duration > 5 &&
+        video.duration > 2 &&
         video.currentTime >= video.duration - 0.1
       ) {
         finishIntro();
@@ -98,6 +127,8 @@ export default function WelcomeScreen() {
 
     const handleError = (e) => {
       console.warn('[WelcomeScreen] Video playback issue:', e);
+      // If video has trouble loading, ensure options are visible immediately
+      setOptionsVisible(true);
     };
 
     video.addEventListener('ended', handleEnded);
@@ -110,6 +141,7 @@ export default function WelcomeScreen() {
       if (p !== undefined) {
         p.catch((err) => {
           console.warn('[WelcomeScreen] Autoplay deferred by browser:', err);
+          setOptionsVisible(true);
         });
       }
     };
@@ -134,9 +166,11 @@ export default function WelcomeScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/* ============================================================ */}
-      {/* 1. CINEMATIC FALLBACK IMAGE                                   */}
-      {/* ============================================================ */}
+      {/* Hero Section Container */}
+      <View style={styles.heroSection}>
+        {/* ============================================================ */}
+        {/* 1. CINEMATIC FALLBACK IMAGE                                   */}
+        {/* ============================================================ */}
       <View style={styles.backgroundLayer} pointerEvents="none">
         <Image
           source={require('../../assets/images/maybewe_entrance_bg.jpg')}
@@ -153,8 +187,8 @@ export default function WelcomeScreen() {
           id="intro-video-container"
           style={styles.videoContainer}
           onClick={() => {
-            // Tap anywhere on video to finish immediately & show options
-            if (!introFinished) finishIntro();
+            // Tap anywhere on video to reveal options immediately
+            if (!optionsVisible) setOptionsVisible(true);
           }}
         >
           <video
@@ -172,7 +206,7 @@ export default function WelcomeScreen() {
             webkit-playsinline="true"
             controls={false}
             loop={false}
-            preload="auto"
+            preload="metadata"
             disablePictureInPicture
             disableRemotePlayback
             style={{
@@ -184,12 +218,11 @@ export default function WelcomeScreen() {
               display: 'block',
               border: 'none',
               outline: 'none',
-              cursor: introFinished ? 'default' : 'pointer',
+              cursor: optionsVisible ? 'default' : 'pointer',
             }}
           >
-            <source src="/Sequence 01.mp4" type="video/mp4" />
-            <source src="/Sequence%2001.mp4" type="video/mp4" />
             <source src="/intro.mp4" type="video/mp4" />
+            <source src="/Sequence%2001.mp4" type="video/mp4" />
           </video>
         </View>
       )}
@@ -203,11 +236,11 @@ export default function WelcomeScreen() {
           StyleSheet.absoluteFillObject,
           {
             zIndex: 4,
-            opacity: introFinished ? 1 : 0,
+            opacity: optionsVisible ? 1 : 0,
             pointerEvents: 'none',
             ...Platform.select({
               web: {
-                transition: 'opacity 0.7s ease',
+                transition: 'opacity 0.6s ease',
               },
             }),
           },
@@ -216,35 +249,19 @@ export default function WelcomeScreen() {
       />
 
       {/* ============================================================ */}
-      {/* 4. SLEEK SKIP BUTTON (Available during video playback)        */}
-      {/* ============================================================ */}
-      {!introFinished && Platform.OS === 'web' && (
-        <TouchableOpacity
-          style={[styles.skipButton, { top: Math.max(insets.top + 16, 22) }]}
-          onPress={finishIntro}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Skip intro video"
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-          <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 2 }} />
-        </TouchableOpacity>
-      )}
-
-      {/* ============================================================ */}
-      {/* 5. OPTIONS SURFACE (Revealed once video finishes playing)    */}
+      {/* 5. OPTIONS SURFACE (Revealed swiftly with smooth entrance)    */}
       {/* ============================================================ */}
       <View
         style={[
           styles.optionsOverlay,
           {
             paddingBottom: Math.max(insets.bottom + 18, 28),
-            opacity: introFinished ? 1 : 0,
-            pointerEvents: introFinished ? 'auto' : 'none',
-            transform: introFinished ? [{ translateY: 0 }] : [{ translateY: 24 }],
+            opacity: optionsVisible ? 1 : 0,
+            pointerEvents: optionsVisible ? 'auto' : 'none',
+            transform: optionsVisible ? [{ translateY: 0 }] : [{ translateY: 20 }],
             ...Platform.select({
               web: {
-                transition: 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+                transition: 'opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
               },
             }),
           },
@@ -277,7 +294,7 @@ export default function WelcomeScreen() {
           {/* Explore MaybeWe (Guest Demo) */}
           <TouchableOpacity
             style={styles.guestExploreBtn}
-            onPress={() => handleNavigate('/(tabs)')}
+            onPress={handleGuestExplore}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Explore MaybeWe (Guest Demo)"
@@ -285,6 +302,8 @@ export default function WelcomeScreen() {
             <Ionicons name="sparkles" size={14} color="#F2D184" style={{ marginRight: 7 }} />
             <Text style={styles.guestExploreText}>Explore MaybeWe (Guest Demo)</Text>
           </TouchableOpacity>
+
+
 
           {/* Forgot Password Link */}
           <TouchableOpacity
@@ -297,12 +316,61 @@ export default function WelcomeScreen() {
             <Text style={styles.forgotBtnText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          {/* Subtle Editorial Tagline */}
-          <View style={styles.footerTagline}>
-            <Text style={styles.footerTaglineText}>MEET SOMEONE. GO SOMEWHERE.</Text>
+            {/* Subtle Editorial Tagline */}
+            <View style={styles.footerTagline}>
+              <Text style={styles.footerTaglineText}>MEET SOMEONE. GO SOMEWHERE.</Text>
+            </View>
           </View>
         </View>
+
+        {/* Scroll down cue for Web */}
+        {Platform.OS === 'web' && (
+          <div
+            className="lenis-scroll-cue"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                const el = document.querySelector('.lenis-editorial-root');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            style={{
+              position: 'absolute',
+              bottom: 14,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 12,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 4,
+              opacity: optionsVisible ? 0.75 : 0,
+              transition: 'opacity 0.6s ease',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+              color: '#D9C8B2',
+              textTransform: 'uppercase',
+            }}>
+              Scroll to explore
+            </span>
+            <span style={{ color: '#F2D184', fontSize: 13, animation: 'mwBounce 1.5s infinite' }}>↓</span>
+          </div>
+        )}
       </View>
+
+      {/* 6. Lenis Editorial Manifesto & Showcase Section (Web only) */}
+      {Platform.OS === 'web' && (
+        <LenisEditorialExperience
+          onExplore={handleGuestExplore}
+          onSignIn={() => handleNavigate('/(auth)/login')}
+          onSignUp={() => handleNavigate('/(auth)/signup')}
+        />
+      )}
     </View>
   );
 }
@@ -311,6 +379,23 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#0F1115',
+    position: 'relative',
+    ...Platform.select({
+      web: {
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        minHeight: '100vh',
+      },
+      default: {
+        overflow: 'hidden',
+      },
+    }),
+  },
+
+  heroSection: {
+    width: '100%',
+    height: '100vh',
+    minHeight: 620,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -327,7 +412,7 @@ const styles = StyleSheet.create({
 
   /* Video background layer */
   videoContainer: {
-    position: 'fixed',
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -339,36 +424,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  /* Sleek Skip Button */
-  skipButton: {
-    position: 'absolute',
-    right: 20,
-    zIndex: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: RADII.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
-        cursor: 'pointer',
-        transition: 'transform 0.15s ease, background-color 0.2s ease',
-      },
-    }),
-  },
-  skipButtonText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
+
 
   /* Options overlay positioned in the lower area of the screen */
   optionsOverlay: {
@@ -473,6 +529,8 @@ const styles = StyleSheet.create({
     color: '#FAF8F3',
     letterSpacing: 0.1,
   },
+
+
 
   /* Forgot Password */
   forgotBtn: {
