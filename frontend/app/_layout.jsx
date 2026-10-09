@@ -872,8 +872,6 @@ export default function RootLayout() {
                   </Stack>
                   {/* Always visible Floating Test Navigator */}
                   <TestNavigatorModal />
-                  {/* Floating Lenis Telemetry HUD (Web only) */}
-                  <LenisTelemetryHUD />
                 </TransitionManager>
               </ThemedAppContainer>
             </AuthRouteGuard>
